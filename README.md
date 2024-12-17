@@ -11,13 +11,11 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
   - Alphabetical (A to Z)
   - Reverse alphabetical (Z to A)
   - Usage frequency
-- 📱 System and user app distinction
 - 🗑️ Quick uninstall for user apps
 
 ### Widget Support
 - ➕ Add and manage Android widgets
 - ↕️ Drag and drop widget reordering
-- 📐 Resize widgets to fit your needs
 - 🔍 Search available widgets by app or name
 
 ### Notifications
