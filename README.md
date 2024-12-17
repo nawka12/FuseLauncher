@@ -2,6 +2,8 @@
 
 A modern, customizable Android launcher built with Flutter that focuses on simplicity and functionality.
 
+[SAMPLE IMAGE SOON]
+
 ## Features
 
 ### App Management
