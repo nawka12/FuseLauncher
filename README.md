@@ -111,7 +111,7 @@ The app uses Flutter's built-in state management with `StatefulWidget` and effic
 
 ## License
 
-[Add your license information here]
+This project is licensed under the MIT License.
 
 ## Acknowledgments
 
