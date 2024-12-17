@@ -2,7 +2,10 @@
 
 A modern, customizable Android launcher built with Flutter that focuses on simplicity and functionality.
 
-[SAMPLE IMAGE SOON]
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/78c8ccba-441a-4c63-8c85-678b199f1e78" width="300" />
+  <img src="https://github.com/user-attachments/assets/3a528ec3-658e-4624-8b1f-89d901ed7355" width="300" />
+</p>
 
 ## Features
 
