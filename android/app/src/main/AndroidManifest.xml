@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.APPWIDGET_HOST" />
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     
     <queries>
         <intent>

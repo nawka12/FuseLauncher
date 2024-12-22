@@ -1,5 +1,5 @@
-name: flauncher
-description: "A new Flutter project."
+name: FLauncher
+description: "A simple and modern launcher for Android"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.5+7
+version: 1.0.6+8
 
 environment:
   sdk: ^3.6.0
@@ -36,6 +36,8 @@ dependencies:
       url: https://github.com/dobuddy/installed_apps/
       ref: master
   shared_preferences: ^2.2.2
+  local_auth: ^2.1.8
+  package_info_plus: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -55,6 +57,8 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/icon.jpeg
 
 # Add this section at the root level, not under flutter:
 flutter_launcher_icons:

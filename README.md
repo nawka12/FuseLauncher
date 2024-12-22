@@ -17,16 +17,20 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
   - Reverse alphabetical (Z to A)
   - Usage frequency
 - 🗑️ Quick uninstall for user apps
+- 👻 Hidden apps management
+- 📊 Smart app usage tracking with decay
 
 ### Widget Support
 - ➕ Add and manage Android widgets
 - ↕️ Drag and drop widget reordering
 - 🔍 Search available widgets by app or name
+- 💾 Persistent widget layouts
 
 ### Notifications
 - 🔔 Real-time notification badges
 - 🔄 Auto-clearing notifications when launching apps
 - 📊 Clean notification management
+- 🎛️ Toggleable notification badges
 
 ### UI/UX
 - 🌙 Dark theme optimized interface
@@ -34,6 +38,8 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 - 📱 Edge-to-edge display support
 - 💫 Haptic feedback for interactions
 - 🔒 Prevents accidental launcher exits
+- 🔐 Optional biometric authentication
+- 🎯 Customizable search bar position (top/bottom)
 
 ## Building from Source
 
@@ -71,6 +77,7 @@ The app needs several Android permissions to function properly. These are define
 <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 <uses-permission android:name="android.permission.APPWIDGET_HOST" />
 <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
+<uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 ```
 
 ### Building
@@ -105,12 +112,18 @@ The app uses Flutter's built-in state management with `StatefulWidget` and effic
 - Efficient widget rebuilding
 - Optimized list rendering with `SliverList`
 - Smart refresh mechanisms to prevent unnecessary reloads
+- Usage history limits with decay algorithm
+- Efficient app sorting and sectioning
 
 ### Key Components
 - Custom widget management system
 - Notification service integration
 - App usage tracking
 - Efficient app sorting and sectioning
+
+### Security Features
+- Biometric authentication support
+- Hidden apps protection
 
 ## License
 

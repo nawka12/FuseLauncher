@@ -10,7 +10,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode.transparent
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -24,6 +24,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.Canvas
 import android.util.Log
 import android.content.pm.PackageManager
+import io.flutter.plugins.GeneratedPluginRegistrant
 
 fun android.graphics.drawable.Drawable.toBitmap(): Bitmap {
     if (this is BitmapDrawable) {
@@ -41,7 +42,7 @@ fun android.graphics.drawable.Drawable.toBitmap(): Bitmap {
     return bitmap
 }
 
-class MainActivity: FlutterActivity() {
+class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.kayfahaarukku.flauncher/widgets"
     private val REQUEST_PICK_APPWIDGET = 9
     private val REQUEST_CREATE_APPWIDGET = 5
@@ -79,9 +80,9 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun createWidgetView(appWidgetId: Int, provider: AppWidgetProviderInfo): AppWidgetHostView? {
-        val widgetView = widgetHost?.createView(context, appWidgetId, provider)
+        val widgetView = widgetHost?.createView(this, appWidgetId, provider)
         if (widgetView != null) {
-            val density = context.resources.displayMetrics.density
+            val density = resources.displayMetrics.density
             val width = ViewGroup.LayoutParams.MATCH_PARENT
             val height = (provider.minHeight * density).toInt()
             
@@ -110,7 +111,6 @@ class MainActivity: FlutterActivity() {
             if (requestCode == REQUEST_CREATE_APPWIDGET || requestCode == REQUEST_PICK_APPWIDGET) {
                 val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
                 if (appWidgetId != -1) {
-                    // Create the widget view immediately after successful configuration
                     val provider = widgetManager?.getAppWidgetInfo(appWidgetId)
                     if (provider != null) {
                         createWidgetView(appWidgetId, provider)
@@ -133,7 +133,7 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
+        GeneratedPluginRegistrant.registerWith(flutterEngine)
         
         // Register platform view factory
         flutterEngine
@@ -164,7 +164,6 @@ class MainActivity: FlutterActivity() {
                         val addedWidgets = host.appWidgetIds?.map { widgetId ->
                             val provider = widgetManager?.getAppWidgetInfo(widgetId)
                             if (provider != null) {
-                                // Create or update widget view
                                 val widgetView = widgetViews[widgetId] ?: createWidgetView(widgetId, provider)
                                 
                                 mapOf(
@@ -200,7 +199,6 @@ class MainActivity: FlutterActivity() {
                                 startActivityForResult(configureIntent, REQUEST_CREATE_APPWIDGET)
                                 result.success(true)
                             } else {
-                                // Request permission to bind widgets
                                 val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
                                 bindIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                                 bindIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, component)
@@ -238,12 +236,12 @@ class MainActivity: FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInstalledApps" -> {
-                        val apps = AppQueryHelper.getLauncherActivities(context).map { resolveInfo ->
+                        val apps = AppQueryHelper.getLauncherActivities(this).map { resolveInfo ->
                             val packageName = resolveInfo.activityInfo.packageName
                             mapOf(
-                                "name" to AppQueryHelper.getAppLabel(context, packageName),
+                                "name" to AppQueryHelper.getAppLabel(this, packageName),
                                 "packageName" to packageName,
-                                "icon" to AppQueryHelper.getAppIcon(context, packageName)?.let { drawable ->
+                                "icon" to AppQueryHelper.getAppIcon(this, packageName)?.let { drawable ->
                                     val bitmap = drawable.toBitmap()
                                     ByteArrayOutputStream().use { stream ->
                                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
@@ -257,7 +255,7 @@ class MainActivity: FlutterActivity() {
                     "openAppSettings" -> {
                         val packageName = call.argument<String>("packageName")
                         if (packageName != null) {
-                            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                             intent.data = Uri.parse("package:$packageName")
                             startActivity(intent)
                             result.success(true)
@@ -295,7 +293,6 @@ class MainActivity: FlutterActivity() {
                                 NOTIFICATION_LISTENER_SETTINGS
                             )
                         }
-                        // Restart notification service
                         toggleNotificationListenerService()
                         result.success(isNotificationServiceEnabled())
                     }
@@ -322,6 +319,22 @@ class MainActivity: FlutterActivity() {
                     mapOf("packageName" to packageName)
                 )
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.flauncher/system")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "changeWallpaper" -> {
+                        try {
+                            val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+                            startActivity(Intent.createChooser(intent, "Select Wallpaper"))
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERROR", "Failed to launch wallpaper picker", null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     fun removeWidgetView(widgetId: Int) {
