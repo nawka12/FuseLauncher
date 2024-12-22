@@ -788,43 +788,47 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           thickness: 6,
                           thumbVisibility: true,
                           trackVisibility: false,
-                          child: CustomScrollView(
-                            controller: _widgetsScrollController,
-                            slivers: [
-                              SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) => Padding(
-                                    key: ValueKey(_addedWidgets[index].widgetId),
-                                    padding: const EdgeInsets.all(16),
-                                    child: ResizableWidget(
-                                      isReorderMode: _isReorderingWidgets,
-                                      onLongPress: () => _showWidgetOptions(
-                                        context, 
-                                        _addedWidgets[index]
-                                      ),
-                                      child: Container(
-                                        width: double.infinity,
-                                        height: _addedWidgets[index].minHeight.toDouble(),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: AndroidView(
-                                          viewType: 'android_widget_view',
-                                          creationParams: {
-                                            'widgetId': _addedWidgets[index].widgetId,
-                                            'width': MediaQuery.of(context).size.width.toInt() - 32,
-                                            'height': _addedWidgets[index].minHeight,
-                                          },
-                                          creationParamsCodec: const StandardMessageCodec(),
-                                        ),
-                                      ),
-                                    ),
+                          child: ReorderableListView.builder(
+                            scrollController: _widgetsScrollController,
+                            onReorder: (oldIndex, newIndex) {
+                              setState(() {
+                                if (oldIndex < newIndex) {
+                                  newIndex -= 1;
+                                }
+                                final item = _addedWidgets.removeAt(oldIndex);
+                                _addedWidgets.insert(newIndex, item);
+                              });
+                              _saveWidgetOrder();
+                            },
+                            itemCount: _addedWidgets.length,
+                            itemBuilder: (context, index) => Padding(
+                              key: ValueKey(_addedWidgets[index].widgetId),
+                              padding: const EdgeInsets.all(16),
+                              child: ResizableWidget(
+                                isReorderMode: _isReorderingWidgets,
+                                onLongPress: () => _showWidgetOptions(
+                                  context, 
+                                  _addedWidgets[index]
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: _addedWidgets[index].minHeight.toDouble(),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  childCount: _addedWidgets.length,
+                                  child: AndroidView(
+                                    viewType: 'android_widget_view',
+                                    creationParams: {
+                                      'widgetId': _addedWidgets[index].widgetId,
+                                      'width': MediaQuery.of(context).size.width.toInt() - 32,
+                                      'height': _addedWidgets[index].minHeight,
+                                    },
+                                    creationParamsCodec: const StandardMessageCodec(),
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
