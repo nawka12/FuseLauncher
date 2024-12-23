@@ -16,6 +16,7 @@ import 'dart:typed_data' show Uint8List;
 import 'notification_service.dart';
 import 'settings_page.dart';
 import 'auth_service.dart';
+import 'navigation_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -102,6 +103,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   DateTime? _lastSwipeTime;
   final Set<String> _pinnedAppsBackup = {};
   bool _isSelectingAppsToHide = false;
+  String _currentScreen = 'main';
 
   @override
   void initState() {
@@ -132,6 +134,38 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _loadSettings();
     _loadHiddenApps();
     _loadPinnedAppsBackup();
+    
+    const systemChannel = MethodChannel('com.kayfahaarukku.flauncher/system');
+    systemChannel.setMethodCallHandler((call) async {
+      if (call.method == 'getNavigationState') {
+        return NavigationState.currentScreen;
+      }
+      if (call.method == 'onBackPressed') {
+        if (_searchController.text.isNotEmpty) {
+          setState(() {
+            _searchController.clear();
+            _isSearchReadOnly = true;
+          });
+          return true;
+        }
+        if (_showingHiddenApps) {
+          setState(() {
+            _showingHiddenApps = false;
+            _isSelectingAppsToHide = false;
+          });
+          return true;
+        }
+        if (_selectedIndex == 1) {
+          _tabController.animateTo(0);
+          setState(() {
+            _selectedIndex = 0;
+          });
+          return true;
+        }
+        return false;
+      }
+      return null;
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -252,6 +286,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() {
         _searchController.clear();
         _isSearchReadOnly = true;
+      });
+      return false;
+    }
+    if (_showingHiddenApps) {
+      setState(() {
+        _showingHiddenApps = false;
+        _isSelectingAppsToHide = false;
       });
       return false;
     }
@@ -1225,13 +1266,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (_lastRefresh != null && now.difference(_lastRefresh!) < const Duration(seconds: 2)) {
         return;
       }
+
       _lastRefresh = now;
 
       // Refresh both apps and pinned apps
       Future.delayed(const Duration(seconds: 1), () async {
         if (mounted) {
           await _loadApps(background: true);
-          await _loadPinnedApps(); // Explicitly reload pinned apps
+          await _loadPinnedApps();
           setState(() {
             _wasUninstalling = false;
           });
@@ -1697,6 +1739,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               IconButton(
                 icon: Icon(Icons.settings, color: isDarkMode ? Colors.white : Colors.black),
                 onPressed: () {
+                  NavigationState.currentScreen = 'settings';
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1710,7 +1753,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         },
                       ),
                     ),
-                  );
+                  ).then((_) => NavigationState.currentScreen = 'main');
                 },
               ),
             ],

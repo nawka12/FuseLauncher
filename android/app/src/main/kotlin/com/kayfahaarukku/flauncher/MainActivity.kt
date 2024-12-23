@@ -268,6 +268,10 @@ class MainActivity: FlutterFragmentActivity() {
                         if (packageName != null) {
                             val intent = packageManager.getLaunchIntentForPackage(packageName)
                             if (intent != null) {
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
                                 startActivity(intent)
                                 NotificationListener.instance?.clearNotificationsForPackage(packageName)
                                 result.success(true)
@@ -277,6 +281,10 @@ class MainActivity: FlutterFragmentActivity() {
                         } else {
                             result.success(false)
                         }
+                    }
+                    "clearStack" -> {
+                        clearStack()
+                        result.success(null)
                     }
                     else -> result.notImplemented()
                 }
@@ -375,5 +383,45 @@ class MainActivity: FlutterFragmentActivity() {
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
             PackageManager.DONT_KILL_APP
         )
+    }
+
+    private fun clearStack() {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        startActivity(intent)
+    }
+
+    override fun onBackPressed() {
+        val channel = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger!!, "com.kayfahaarukku.flauncher/system")
+        channel.invokeMethod("getNavigationState", null, object : MethodChannel.Result {
+            override fun success(result: Any?) {
+                when (result as? String) {
+                    "settings", "about" -> {
+                        // Allow back button for settings and about pages
+                        super@MainActivity.onBackPressed()
+                    }
+                    else -> {
+                        // For main screen or any other state, handle in Flutter
+                        channel.invokeMethod("onBackPressed", null, object : MethodChannel.Result {
+                            override fun success(result: Any?) {
+                                // Flutter handled the back press, do nothing
+                            }
+                            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                                // On error, do nothing
+                            }
+                            override fun notImplemented() {
+                                // Method not implemented, do nothing
+                            }
+                        })
+                    }
+                }
+            }
+            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                // On error, do nothing
+            }
+            override fun notImplemented() {
+                // Method not implemented, do nothing
+            }
+        })
     }
 }
