@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'about_page.dart';
 import 'navigation_state.dart';
 
@@ -24,7 +23,6 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _currentPosition;
   late bool _showNotificationBadges;
-  String _currentScreen = 'settings';
 
   @override
   void initState() {

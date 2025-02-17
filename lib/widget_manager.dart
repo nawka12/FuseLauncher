@@ -1,6 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' show max, min;
 
 class WidgetInfo {
   final String label;
@@ -26,8 +26,8 @@ class WidgetInfo {
     int? currentWidth,
     int? currentHeight,
   }) : 
-    this.currentWidth = currentWidth ?? minWidth,
-    this.currentHeight = currentHeight ?? minHeight;
+    currentWidth = currentWidth ?? minWidth,
+    currentHeight = currentHeight ?? minHeight;
 }
 
 class WidgetManager {
@@ -46,7 +46,9 @@ class WidgetManager {
         packageName: widget['packageName'] ?? '',
       )).toList();
     } catch (e) {
-      print('Error getting widgets: $e');
+      if (kDebugMode) {
+        print('Error getting widgets: $e');
+      }
       return [];
     }
   }
@@ -65,7 +67,9 @@ class WidgetManager {
         packageName: widget['packageName'] ?? '',
       )).toList();
     } catch (e) {
-      print('Error getting added widgets: $e');
+      if (kDebugMode) {
+        print('Error getting added widgets: $e');
+      }
       return [];
     }
   }
@@ -79,7 +83,9 @@ class WidgetManager {
       });
       return result;
     } catch (e) {
-      print('Error adding widget: $e');
+      if (kDebugMode) {
+        print('Error adding widget: $e');
+      }
       return false;
     }
   }
@@ -91,7 +97,9 @@ class WidgetManager {
       });
       return result;
     } catch (e) {
-      print('Error removing widget: $e');
+      if (kDebugMode) {
+        print('Error removing widget: $e');
+      }
       return false;
     }
   }
@@ -105,7 +113,9 @@ class WidgetManager {
       });
       return result;
     } catch (e) {
-      print('Error updating widget size: $e');
+      if (kDebugMode) {
+        print('Error updating widget size: $e');
+      }
       return false;
     }
   }

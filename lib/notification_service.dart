@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
@@ -10,12 +11,18 @@ class NotificationService {
   
   static Future<void> initialize() async {
     try {
-      print('Initializing notification service');
+      if (kDebugMode) {
+        print('Initializing notification service');
+      }
       final bool? hasAccess = await platform.invokeMethod('requestNotificationAccess');
-      print('Notification access granted: $hasAccess');
+      if (kDebugMode) {
+        print('Notification access granted: $hasAccess');
+      }
       
       platform.setMethodCallHandler((call) async {
-        print('Received method call: ${call.method}');
+        if (kDebugMode) {
+          print('Received method call: ${call.method}');
+        }
         switch (call.method) {
           case 'onNotificationPosted':
             final packageName = call.arguments['packageName'] as String;
@@ -34,7 +41,9 @@ class NotificationService {
         }
       });
     } catch (e) {
-      print('Error initializing notification service: $e');
+      if (kDebugMode) {
+        print('Error initializing notification service: $e');
+      }
     }
   }
   

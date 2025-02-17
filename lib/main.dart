@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/rendering.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'widget_manager.dart';
-import 'dart:math' show max;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_usage_tracker.dart';
 import 'sort_options.dart';
@@ -12,7 +10,6 @@ import 'app_sections.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
-import 'dart:typed_data' show Uint8List;
 import 'notification_service.dart';
 import 'settings_page.dart';
 import 'auth_service.dart';
@@ -78,10 +75,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   int _selectedIndex = 0;
   List<AppInfo> _apps = [];
   List<WidgetInfo> _addedWidgets = [];
-  List<WidgetInfo> _availableWidgets = [];
   bool _isLoading = true;
-  bool _loadingWidgets = false;
-  bool _wasUninstalling = false;
   DateTime? _lastRefresh;
   bool _isBackgroundLoading = false;
   List<AppInfo> _pinnedApps = [];
@@ -89,9 +83,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   AppListSortType _appListSortType = AppListSortType.alphabeticalAsc;
   List<AppSection> _appSections = [];
   String _currentSection = '';
-  double _lastScrollPosition = 0;
-  bool _isSearchReadOnly = true;
-  bool _isResizingWidget = false;
   final Map<String, Uint8List> _iconCache = {};
   final int _maxCacheSize = 50; // Adjust based on your needs
   final FocusNode _searchFocusNode = FocusNode();
@@ -106,7 +97,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   DateTime? _lastSwipeTime;
   final Set<String> _pinnedAppsBackup = {};
   bool _isSelectingAppsToHide = false;
-  String _currentScreen = 'main';
   final Map<int, Uint8List> _widgetPreviewCache = {};
 
   @override
@@ -148,7 +138,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         if (_searchController.text.isNotEmpty) {
           setState(() {
             _searchController.clear();
-            _isSearchReadOnly = true;
           });
           return true;
         }
@@ -228,15 +217,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (mounted) {
         setState(() {
           _apps = apps;
-          AppUsageTracker.sortAppList(_apps, _appListSortType);
         });
+        await AppUsageTracker.sortAppList(_apps, _appListSortType);
         
-        // Load pinned apps first
         await _loadPinnedApps();
         
         if (mounted) {
           setState(() {
-            // Then create sections from the full apps list
             _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
             if (!background) {
               _isLoading = false;
@@ -264,13 +251,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (_isSelectingAppsToHide) {
       // When selecting apps to hide, show all apps except system apps
       apps = List<AppInfo>.from(_apps)
-        ..sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+        ..sort((a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
       
       // Apply search filter if query exists
       final query = _hiddenAppsSearchController.text.toLowerCase();
       if (query.isNotEmpty) {
         apps = apps.where((app) => 
-          (app.name?.toLowerCase().contains(query) ?? false)
+          (app.name.toLowerCase().contains(query))
         ).toList();
       }
       return apps;
@@ -284,7 +271,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (query.isEmpty) return apps;
       
       return apps.where((app) => 
-        (app.name?.toLowerCase().contains(query) ?? false)
+        (app.name.toLowerCase().contains(query))
       ).toList();
     }
   }
@@ -294,7 +281,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() {
         _searchController.clear();
         _hiddenAppsSearchController.clear();
-        _isSearchReadOnly = true;
       });
       return false;
     }
@@ -321,8 +307,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     bool? isSystemAppResult = await InstalledApps.isSystemApp(application.packageName);
     bool isSystemApp = isSystemAppResult ?? true;
     bool isHidden = _hiddenApps.contains(application.packageName);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
@@ -393,7 +378,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    application.name ?? '',
+                                    application.name,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
@@ -485,7 +470,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           ),
                           onTap: () async {
                             Navigator.pop(context);
-                            _wasUninstalling = true;
                             await InstalledApps.uninstallApp(application.packageName);
                           },
                         ),
@@ -511,49 +495,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _loadAvailableWidgets() async {
-    if (_loadingWidgets) return;
-    
-    setState(() {
-      _loadingWidgets = true;
-    });
 
-    try {
-      final widgets = await WidgetManager.getAvailableWidgets();
-      setState(() {
-        _availableWidgets = widgets;
-        _loadingWidgets = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading widgets: $e');
-      setState(() {
-        _loadingWidgets = false;
-      });
-    }
-  }
-
-  Future<void> _configureWidget(WidgetInfo widget) async {
-    // Prevent adding widgets with 0dp size
-    if (widget.minWidth <= 0 || widget.minHeight <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid widget size')),
-        );
-      }
-      return;
-    }
-
-    final success = await WidgetManager.addWidget(widget);
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Widget added successfully')),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to add widget')),
-      );
-    }
-  }
 
   Future<void> _loadAddedWidgets() async {
     if (mounted) {
@@ -607,14 +549,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _openAppSettings(String packageName) async {
-    const platform = MethodChannel('com.kayfahaarukku.flauncher/apps');
-    try {
-      await platform.invokeMethod('openAppSettings', {'packageName': packageName});
-    } catch (e) {
-      print('Error opening app settings: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -716,25 +650,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  double _calculateTotalHeight() {
-    double height = 0;
-    
-    // Height for pinned apps section if present and not searching
-    if (_pinnedApps.isNotEmpty && _searchController.text.isEmpty) {
-      height += 48.0; // Pinned apps header
-      height += _pinnedApps.length * 72.0; // Pinned apps
-      height += 16.0; // Divider
-      height += 48.0; // Apps header
-    }
-    
-    // Height for sections
-    for (var section in _appSections) {
-      height += 40.0; // Section header
-      height += section.apps.length * 72.0; // Apps in section
-    }
-    
-    return height;
-  }
 
   Widget _buildAppsList() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1154,7 +1069,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                     setState(() {}); // Refresh the widget list
                                   }
                                 },
-                              )).toList(),
+                              )),
                               const Divider(color: Colors.white24),
                             ],
                           );
@@ -1239,7 +1154,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             future: _getAppIcon(widget.packageName),
                             builder: (context, snapshot) {
                               if (snapshot.hasData) {
-                                return Container(
+                                return SizedBox(
                                   width: 40,
                                   height: 40,
                                   child: snapshot.data,
@@ -1341,7 +1256,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           await _loadApps(background: true);
           await _loadPinnedApps();
           setState(() {
-            _wasUninstalling = false;
           });
         }
       });
@@ -1412,33 +1326,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     await prefs.setStringList('widget_order', widgetIds);
   }
 
-  Future<void> _loadWidgetOrder() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedOrder = prefs.getStringList('widget_order') ?? [];
-    
-    if (_addedWidgets.isEmpty || savedOrder.isEmpty) return;
-    
-    final orderedWidgets = <WidgetInfo>[];
-    final unorderedWidgets = List<WidgetInfo>.from(_addedWidgets);
-    
-    // First add widgets in the saved order
-    for (var widgetId in savedOrder) {
-      final index = unorderedWidgets.indexWhere(
-        (w) => w.widgetId?.toString() == widgetId
-      );
-      if (index != -1) {
-        orderedWidgets.add(unorderedWidgets[index]);
-        unorderedWidgets.removeAt(index);
-      }
-    }
-    
-    // Add any remaining widgets at the end
-    orderedWidgets.addAll(unorderedWidgets);
-    
-    setState(() {
-      _addedWidgets = orderedWidgets;
-    });
-  }
 
   void _showAppListSortOptions() {
     showModalBottomSheet(
@@ -1526,9 +1413,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (!_scrollController.hasClients) return;
     
     final position = _scrollController.position.pixels;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final viewportHeight = _scrollController.position.viewportDimension;
-    
+
     // Calculate current section
     double currentPos = 0;
     if (_pinnedApps.isNotEmpty && _searchController.text.isEmpty) {
@@ -1588,7 +1473,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
         title: Text(
-          app.name ?? 'Unknown',
+          app.name,
           style: TextStyle(
             color: isDarkMode ? Colors.white : Colors.black,
           ),
@@ -1652,7 +1537,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             ),
           ),
           title: Text(
-            app.name ?? 'Unknown',
+            app.name,
             style: TextStyle(
               color: isDarkMode ? Colors.white : Colors.black,
               fontSize: 16,
@@ -1727,32 +1612,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return null;
   }
 
-  void _validatePinnedApps() {
-    if (_apps.isEmpty) return;
-    
-    final validPinnedApps = _pinnedApps.where((pinnedApp) =>
-      _apps.any((app) => app.packageName == pinnedApp.packageName)
-    ).toList();
-    
-    if (!listEquals(validPinnedApps, _pinnedApps)) {
-      setState(() {
-        _pinnedApps = validPinnedApps;
-      });
-      _savePinnedApps();
-    }
-  }
 
-  Future<void> _saveWidgetSizes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final widgetSizes = _addedWidgets
-      .where((w) => w.widgetId != null)
-      .map((w) => {
-        'widgetId': w.widgetId,
-        'width': w.currentWidth,
-        'height': w.currentHeight,
-      }).toList();
-    await prefs.setString('widget_sizes', jsonEncode(widgetSizes));
-  }
 
   double _getBottomSheetPadding(BuildContext context) {
     // Get the bottom padding (includes navigation bar height)
@@ -1764,22 +1624,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void _unfocusSearch() {
     _searchFocusNode.unfocus();
     setState(() {
-      _isSearchReadOnly = true;
     });
   }
 
-  Future<void> _launchApp(String packageName) async {
-    try {
-      final result = await const MethodChannel('com.kayfahaarukku.flauncher/apps')
-          .invokeMethod('launchApp', {'packageName': packageName});
-      if (result == true) {
-        // Reset notification count when app is launched
-        NotificationService.resetNotificationCount(packageName);
-      }
-    } catch (e) {
-      print('Error launching app: $e');
-    }
-  }
 
   Widget _buildSearchBar() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1963,7 +1810,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 childCount: section.apps.length,
               ),
             ),
-          ]).toList(),
+          ]),
         ],
       ),
     );
@@ -1971,120 +1818,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   bool get isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
-  void _showAddToHiddenApps(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.9, // Allow up to 90% of screen height
-      ),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[600],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: _getBottomSheetPadding(context),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'Select Apps to Hide',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _apps.length,
-                      itemBuilder: (context, index) {
-                        final app = _apps[index];
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: app.icon != null
-                                  ? Image.memory(
-                                      app.icon!,
-                                      width: 40,
-                                      height: 40,
-                                      fit: BoxFit.contain,
-                                    )
-                                  : const Icon(Icons.android, color: Colors.white),
-                            ),
-                          ),
-                          title: Text(
-                            app.name ?? '',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          subtitle: Text(
-                            app.packageName,
-                            style: TextStyle(color: Colors.grey[400]),
-                          ),
-                          onTap: () async {
-                            setState(() {
-                              _hiddenApps.add(app.packageName);
-                              // If app is pinned, remove it and store in backup
-                              if (_pinnedApps.any((pinnedApp) => pinnedApp.packageName == app.packageName)) {
-                                _pinnedApps.removeWhere((pinnedApp) => pinnedApp.packageName == app.packageName);
-                                _pinnedAppsBackup.add(app.packageName);
-                              }
-                            });
-                            await _saveHiddenApps();
-                            await _savePinnedApps();
-                            await _savePinnedAppsBackup();
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
     // Return null if no preview image is provided

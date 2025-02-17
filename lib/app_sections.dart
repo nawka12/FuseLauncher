@@ -22,11 +22,11 @@ class AppSectionManager {
     switch (sortType) {
       case AppListSortType.alphabeticalAsc:
         sortedApps.sort((a, b) => 
-          (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase())
+          (a.name).toLowerCase().compareTo((b.name).toLowerCase())
         );
       case AppListSortType.alphabeticalDesc:
         sortedApps.sort((a, b) => 
-          (b.name ?? '').toLowerCase().compareTo((a.name ?? '').toLowerCase())
+          (b.name).toLowerCase().compareTo((a.name).toLowerCase())
         );
       case AppListSortType.usage:
         // Already handled above
@@ -39,8 +39,8 @@ class AppSectionManager {
     List<AppInfo> currentApps = [];
 
     for (var app in sortedApps) {
-      final firstLetter = (app.name ?? '').isNotEmpty 
-          ? (app.name ?? '')[0].toUpperCase()
+      final firstLetter = (app.name).isNotEmpty
+          ? (app.name)[0].toUpperCase()
           : '#';
 
       if (currentLetter != firstLetter) {

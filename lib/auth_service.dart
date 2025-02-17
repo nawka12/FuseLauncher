@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
 
@@ -19,7 +20,9 @@ class AuthService {
         ),
       );
     } on PlatformException catch (e) {
-      print('Authentication error: $e');
+      if (kDebugMode) {
+        print('Authentication error: $e');
+      }
       return false;
     }
   }
