@@ -166,12 +166,26 @@ class MainActivity: FlutterFragmentActivity() {
                             if (provider != null) {
                                 val widgetView = widgetViews[widgetId] ?: createWidgetView(widgetId, provider)
                                 
+                                val previewBase64 = if (provider.previewImage != 0) {
+                                    try {
+                                        val drawable = packageManager.getDrawable(provider.provider.packageName, provider.previewImage, null)
+                                        if (drawable != null) {
+                                            val bitmap = drawable.toBitmap()
+                                            val stream = ByteArrayOutputStream()
+                                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                                            android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+                                        } else ""
+                                    } catch (e: Exception) {
+                                        ""
+                                    }
+                                } else ""
+                                
                                 mapOf(
                                     "label" to provider.loadLabel(packageManager),
                                     "provider" to provider.provider.flattenToString(),
                                     "minWidth" to provider.minWidth,
                                     "minHeight" to provider.minHeight,
-                                    "previewImage" to provider.previewImage?.toString(),
+                                    "previewImage" to previewBase64,
                                     "widgetId" to widgetId,
                                     "appName" to packageManager.getApplicationLabel(
                                         packageManager.getApplicationInfo(provider.provider.packageName, 0)

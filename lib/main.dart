@@ -16,6 +16,7 @@ import 'auth_service.dart';
 import 'navigation_state.dart';
 import 'hidden_apps_manager.dart';
 import 'dart:convert' show base64Decode;
+import 'live_widget_preview.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -938,28 +939,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                     color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: FutureBuilder<Uint8List?>(
-                                    future: _loadWidgetPreview(_addedWidgets[index]),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-                                        // Display the cached image preview
-                                        return Image.memory(
-                                          snapshot.data!,
-                                          fit: BoxFit.cover,
-                                        );
-                                      } else {
-                                        // Fallback: display the AndroidView (if no preview is available or still loading)
-                                        return AndroidView(
-                                          viewType: 'android_widget_view',
-                                          creationParams: {
-                                            'widgetId': _addedWidgets[index].widgetId,
-                                            'width': MediaQuery.of(context).size.width.toInt() - 32,
-                                            'height': _addedWidgets[index].minHeight,
-                                          },
-                                          creationParamsCodec: const StandardMessageCodec(),
-                                        );
-                                      }
-                                    },
+                                  child: LiveWidgetPreview(
+                                    widgetId: _addedWidgets[index].widgetId!,
+                                    minHeight: _addedWidgets[index].minHeight,
                                   ),
                                 ),
                               ),

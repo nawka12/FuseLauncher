@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  visibility_detector: ^0.2.2
   installed_apps:
     git:
       url: https://github.com/dobuddy/installed_apps/
