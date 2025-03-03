@@ -17,9 +17,17 @@ import 'navigation_state.dart';
 import 'hidden_apps_manager.dart';
 import 'dart:convert' show base64Decode;
 import 'live_widget_preview.dart';
+import 'database/app_database.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Print out all BuiltWith enum values to debug
+  print('BuiltWith enum values:');
+  for (var value in BuiltWith.values) {
+    print(' - $value');
+  }
+  
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   if (Platform.isAndroid) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -213,25 +221,59 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
     
     try {
-      final apps = await InstalledApps.getInstalledApps(false, true, true);
+      // First try to load from cache
+      if (!background) {
+        final cachedApps = await AppDatabase.getCachedApps();
+        if (cachedApps.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _apps = cachedApps;
+              _isLoading = false;
+            });
+            await AppUsageTracker.sortAppList(_apps, _appListSortType);
+            await _loadPinnedApps();
+            if (mounted) {
+              setState(() {
+                _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+              });
+            }
+          }
+        }
+      }
       
-      if (mounted) {
-        setState(() {
-          _apps = apps;
-        });
-        await AppUsageTracker.sortAppList(_apps, _appListSortType);
+      // Then load fresh data in the background
+      final lastUpdate = await AppDatabase.getLastUpdateTime();
+      final shouldRefresh = lastUpdate == null || 
+          DateTime.now().difference(lastUpdate) > const Duration(hours: 1);
+      
+      if (shouldRefresh) {
+        final freshApps = await InstalledApps.getInstalledApps(false, true, true);
         
-        await _loadPinnedApps();
+        // Cache the fresh data
+        await AppDatabase.cacheApps(freshApps);
         
         if (mounted) {
           setState(() {
-            _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-            if (!background) {
-              _isLoading = false;
-            }
-            _isBackgroundLoading = false;
+            _apps = freshApps;
           });
+          await AppUsageTracker.sortAppList(_apps, _appListSortType);
+          await _loadPinnedApps();
+          
+          if (mounted) {
+            setState(() {
+              _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+              if (!background) {
+                _isLoading = false;
+              }
+              _isBackgroundLoading = false;
+            });
+          }
         }
+        
+        // Clear old cache entries
+        await AppDatabase.clearOldCache(const Duration(days: 7));
+      } else {
+        _isBackgroundLoading = false;
       }
     } catch (e) {
       if (mounted) {
