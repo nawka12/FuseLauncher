@@ -46,14 +46,14 @@ class _LiveWidgetPreviewState extends State<LiveWidgetPreview> {
           : Container(
               height: widget.minHeight.toDouble(),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Icon(
                   Icons.widgets,
                   size: widget.minHeight / 2.5,
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withAlpha(77),
                 ),
               ),
             ),

@@ -147,7 +147,7 @@ class ResizableWidget extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withAlpha(128),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Icon(

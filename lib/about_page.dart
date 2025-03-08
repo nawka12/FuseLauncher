@@ -8,10 +8,11 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pop();
-        return false;
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pop();
+        }
       },
       child: Scaffold(
         backgroundColor: isDarkMode ? Colors.black : Colors.white,

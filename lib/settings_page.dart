@@ -64,10 +64,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pop();
-        return false;
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.of(context).pop();
+        }
       },
       child: Scaffold(
         backgroundColor: isDarkMode 
@@ -105,7 +106,7 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: Text(
                 _currentPosition ? 'Top' : 'Bottom',
                 style: TextStyle(
-                  color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
                 ),
               ),
               onTap: () {
@@ -189,7 +190,7 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: Text(
                 _showNotificationBadges ? 'Shown' : 'Hidden',
                 style: TextStyle(
-                  color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
                 ),
               ),
               trailing: Switch(
@@ -198,7 +199,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             Divider(
-              color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
             ),
             ListTile(
               leading: Icon(

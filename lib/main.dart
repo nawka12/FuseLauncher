@@ -354,7 +354,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
-        backgroundColor: Colors.grey[900],
+        backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -370,7 +370,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey[600],
+                color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -391,7 +391,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withAlpha(26),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: ClipRRect(
@@ -431,7 +431,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   Text(
                                     application.packageName,
                                     style: TextStyle(
-                                      color: Colors.grey[400],
+                                      color: (Colors.grey[400] ?? Colors.grey),
                                       fontSize: 14,
                                     ),
                                   ),
@@ -597,12 +597,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
-    return WillPopScope(
-      onWillPop: _onWillPop,
+    return PopScope(
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          await _onWillPop();
+        }
+      },
       child: GestureDetector(
         onTap: _unfocusSearch,
         child: Scaffold(
-          backgroundColor: (isDarkMode ? Colors.black : Colors.white).withOpacity(0.5),
+          backgroundColor: (isDarkMode ? Colors.black : Colors.white).withAlpha(128),
           body: SafeArea(
             child: Column(
               children: [
@@ -656,7 +660,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: TabBar(
@@ -666,9 +670,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         indicatorColor: Colors.transparent,
                         dividerColor: Colors.transparent,
                         labelColor: isDarkMode ? Colors.white : Colors.black,
-                        unselectedLabelColor: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.5),
+                        unselectedLabelColor: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
                         indicator: BoxDecoration(
-                          color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.2),
+                          color: (isDarkMode ? Colors.white : Colors.black).withAlpha(51),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -753,7 +757,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           if (_showingHiddenApps)
             Container(
               padding: const EdgeInsets.all(16),
-              color: Colors.red.withOpacity(0.1),
+              color: Colors.red.withAlpha(26),
               child: Row(
                 children: [
                   Icon(
@@ -820,7 +824,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               HapticFeedback.heavyImpact();
               showModalBottomSheet(
                 context: context,
-                backgroundColor: Colors.grey[900],
+                backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
@@ -851,7 +855,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
-                            backgroundColor: Colors.grey[900],
+                            backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
                             title: const Text(
                               'Clear All Widgets',
                               style: TextStyle(color: Colors.white),
@@ -904,7 +908,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         child: Text(
                           'Drag widgets to reorder them',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withAlpha(179),
                             fontSize: 14,
                           ),
                         ),
@@ -944,7 +948,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         ),
                         child: RawScrollbar(
                           controller: _widgetsScrollController,
-                          thumbColor: Colors.white.withOpacity(0.3),
+                          thumbColor: Colors.white.withAlpha(77),
                           radius: const Radius.circular(20),
                           thickness: 6,
                           thumbVisibility: true,
@@ -978,7 +982,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   width: double.infinity,
                                   height: _addedWidgets[index].minHeight.toDouble(),
                                   decoration: BoxDecoration(
-                                    color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+                                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: LiveWidgetPreview(
@@ -1000,7 +1004,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _showAddWidgetDialog,
-            backgroundColor: Colors.white.withOpacity(0.2),
+            backgroundColor: Colors.white.withAlpha(51),
             child: const Icon(Icons.add, color: Colors.white),
           ),
         ),
@@ -1022,7 +1026,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: Colors.grey[900],
+              backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
               title: const Text(
                 'Add Widget',
                 style: TextStyle(color: Colors.white),
@@ -1036,10 +1040,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search widgets...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                        prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
+                        hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
+                        prefixIcon: Icon(Icons.search, color: Colors.white.withAlpha(179)),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
+                        fillColor: Colors.white.withAlpha(26),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -1069,7 +1073,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 child: Text(
                                   entry.key,
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.7),
+                                    color: Colors.white.withAlpha(179),
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1083,7 +1087,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 subtitle: Text(
                                   '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
                                   '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
-                                  style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                  style: TextStyle(color: Colors.white.withAlpha(128)),
                                 ),
                                 onTap: () async {
                                   Navigator.pop(context);
@@ -1141,7 +1145,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     HapticFeedback.heavyImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1157,7 +1161,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             height: 4,
             margin: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey[600],
+              color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1203,7 +1207,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 Text(
                                   widget.appName,
                                   style: TextStyle(
-                                    color: Colors.grey[400],
+                                    color: (Colors.grey[400] ?? Colors.grey),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -1354,7 +1358,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void _showAppListSortOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1372,7 +1376,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[600],
+                  color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1468,7 +1472,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       child: Text(
         'Pinned Apps',
         style: TextStyle(
-          color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+          color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
           fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
@@ -1486,7 +1490,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
             borderRadius: BorderRadius.circular(8),
           ),
           child: ClipRRect(
@@ -1504,7 +1508,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ),
         trailing: Icon(
           isHidden ? Icons.check_box : Icons.check_box_outline_blank,
-          color: isHidden ? Colors.red : (isDarkMode ? Colors.white : Colors.black).withOpacity(0.5),
+          color: isHidden ? Colors.red : (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
         ),
         onTap: () async {
           setState(() {
@@ -1536,7 +1540,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ClipRRect(
@@ -1570,7 +1574,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           trailing: isPinned
               ? Icon(
                   Icons.push_pin,
-                  color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
                   size: 20,
                 )
               : null,
@@ -1592,7 +1596,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: Colors.red,
+                color: Colors.red.withAlpha(26),
                 borderRadius: BorderRadius.circular(8),
               ),
               constraints: const BoxConstraints(
@@ -1671,11 +1675,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   ? 'Search hidden apps...'
                   : 'Search apps...',
           hintStyle: TextStyle(
-            color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.5),
+            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
           ),
           prefixIcon: Icon(
             Icons.search,
-            color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
           ),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
@@ -1716,7 +1720,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   ],
                 ),
           filled: true,
-          fillColor: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.1),
+          fillColor: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
@@ -1774,7 +1778,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     return RawScrollbar(
       controller: _scrollController,
-      thumbColor: Colors.white.withOpacity(0.3),
+      thumbColor: Colors.white.withAlpha(77),
       radius: const Radius.circular(20),
       thickness: 6,
       thumbVisibility: true,
@@ -1802,7 +1806,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Divider(
-                  color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.24),
+                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(61),
                 ),
               ),
             ),
@@ -1818,7 +1822,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   child: Text(
                     section.letter,
                     style: TextStyle(
-                      color: (isDarkMode ? Colors.white : Colors.black).withOpacity(0.7),
+                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
