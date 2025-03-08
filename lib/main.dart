@@ -1596,7 +1596,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: Colors.red.withAlpha(26),
+                color: Colors.red,
                 borderRadius: BorderRadius.circular(8),
               ),
               constraints: const BoxConstraints(
