@@ -18,6 +18,7 @@ import 'hidden_apps_manager.dart';
 import 'dart:convert' show base64Decode;
 import 'live_widget_preview.dart';
 import 'database/app_database.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,17 +49,114 @@ class MyApp extends StatelessWidget {
       title: 'FLauncher',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFF6750A4), // Primary purple color
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        textTheme: GoogleFonts.poppinsTextTheme(
+          ThemeData.light().textTheme,
+        ),
+        cardTheme: CardTheme(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        appBarTheme: AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: const IconThemeData(color: Color(0xFF6750A4)),
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF6750A4),
+          ),
+        ),
+        dialogTheme: DialogTheme(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: const Color(0xFFF5F5F5),
+          hintStyle: GoogleFonts.poppins(
+            color: Colors.grey.shade600,
+            fontSize: 14,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: const Color(0xFFD0BCFF), // Lighter purple for dark mode
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        textTheme: GoogleFonts.poppinsTextTheme(
+          ThemeData.dark().textTheme,
+        ),
+        cardTheme: CardTheme(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: const Color(0xFF2D2D2D),
+        ),
+        appBarTheme: AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: const IconThemeData(color: Color(0xFFD0BCFF)),
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFD0BCFF),
+          ),
+        ),
+        dialogTheme: DialogTheme(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: const Color(0xFF1E1E1E),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: const Color(0xFF2D2D2D),
+          hintStyle: GoogleFonts.poppins(
+            color: Colors.grey.shade400,
+            fontSize: 14,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+        ),
       ),
       themeMode: ThemeMode.system,
       home: const MyHomePage(),
@@ -354,7 +452,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
-        backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
+        backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -362,183 +460,183 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         isScrollControlled: true,
-        builder: (context) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
-                borderRadius: BorderRadius.circular(2),
+        builder: (context) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: _getBottomSheetPadding(context),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(26),
-                                borderRadius: BorderRadius.circular(8),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: _getBottomSheetPadding(context),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? const Color(0xFF424242) : const Color(0xFFE0E0E0),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: application.icon != null
+                                      ? Image.memory(
+                                          application.icon!,
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Icon(
+                                              Icons.android,
+                                              color: isDarkMode ? Colors.white : Colors.black54,
+                                            );
+                                          },
+                                        )
+                                      : Icon(
+                                          Icons.android,
+                                          color: isDarkMode ? Colors.white : Colors.black54,
+                                        ),
+                                ),
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: application.icon != null
-                                    ? Image.memory(
-                                        application.icon!,
-                                        width: 40,
-                                        height: 40,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return const Icon(
-                                            Icons.android,
-                                            color: Colors.white,
-                                          );
-                                        },
-                                      )
-                                    : const Icon(
-                                        Icons.android,
-                                        color: Colors.white,
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      application.name,
+                                      style: TextStyle(
+                                        color: isDarkMode ? Colors.white : Colors.black,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    application.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
                                     ),
-                                  ),
-                                  Text(
-                                    application.packageName,
-                                    style: TextStyle(
-                                      color: (Colors.grey[400] ?? Colors.grey),
-                                      fontSize: 14,
+                                    Text(
+                                      application.packageName,
+                                      style: TextStyle(
+                                        color: isDarkMode ? Colors.white70 : Colors.black54,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      if (isHidden)
+                        if (isHidden)
+                          ListTile(
+                            leading: Icon(Icons.visibility, color: isDarkMode ? Colors.white : Colors.black),
+                            title: Text(
+                              'Unhide App',
+                              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                            ),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              setState(() {
+                                _hiddenApps.remove(application.packageName);
+                                _searchController.clear();
+                                _hiddenAppsSearchController.clear();
+                                // Restore pinned status if it was previously pinned
+                                if (_pinnedAppsBackup.contains(application.packageName)) {
+                                  _pinnedApps.add(application);
+                                  _pinnedAppsBackup.remove(application.packageName);
+                                }
+                              });
+                              await _saveHiddenApps();
+                              await _savePinnedApps();
+                              await _savePinnedAppsBackup();
+                            },
+                          ),
                         ListTile(
-                          leading: const Icon(Icons.visibility, color: Colors.white),
-                          title: const Text(
-                            'Unhide App',
-                            style: TextStyle(color: Colors.white),
+                          leading: Icon(
+                            isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
+                          title: Text(
+                            isPinned ? 'Unpin' : 'Pin to Top',
+                            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
                           ),
                           onTap: () async {
                             Navigator.pop(context);
                             setState(() {
-                              _hiddenApps.remove(application.packageName);
-                              _searchController.clear();
-                              _hiddenAppsSearchController.clear();
-                              // Restore pinned status if it was previously pinned
-                              if (_pinnedAppsBackup.contains(application.packageName)) {
-                                _pinnedApps.add(application);
-                                _pinnedAppsBackup.remove(application.packageName);
-                              }
-                            });
-                            await _saveHiddenApps();
-                            await _savePinnedApps();
-                            await _savePinnedAppsBackup();
-                          },
-                        ),
-                      ListTile(
-                        leading: Icon(
-                          isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                          color: Colors.white,
-                        ),
-                        title: Text(
-                          isPinned ? 'Unpin' : 'Pin to Top',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        onTap: () async {
-                          Navigator.pop(context);
-                          setState(() {
-                            if (isPinned) {
-                              _pinnedApps.removeWhere(
-                                (pinnedApp) => pinnedApp.packageName == application.packageName
-                              );
-                            } else {
-                              if (!_pinnedApps.any((app) => app.packageName == application.packageName)) {
-                                if (_pinnedApps.length < 10) {
-                                  _pinnedApps.add(application);
+                              if (isPinned) {
+                                _pinnedApps.removeWhere(
+                                  (pinnedApp) => pinnedApp.packageName == application.packageName
+                                );
+                              } else {
+                                if (!_pinnedApps.any((app) => app.packageName == application.packageName)) {
+                                  if (_pinnedApps.length < 10) {
+                                    _pinnedApps.add(application);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Maximum 10 apps can be pinned'),
+                                      ),
+                                    );
+                                  }
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Maximum 10 apps can be pinned'),
+                                    SnackBar(
+                                      content: Text('${application.name} is already pinned'),
                                     ),
                                   );
                                 }
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${application.name} is already pinned'),
-                                  ),
-                                );
                               }
-                            }
-                          });
-                          await _savePinnedApps();
-                        },
-                      ),
-                      if (!isSystemApp)
-                        ListTile(
-                          leading: const Icon(Icons.delete, color: Colors.red),
-                          title: const Text(
-                            'Uninstall',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await InstalledApps.uninstallApp(application.packageName);
+                            });
+                            await _savePinnedApps();
                           },
                         ),
-                      ListTile(
-                        leading: const Icon(Icons.info_outline, color: Colors.white),
-                        title: const Text(
-                          'App Info',
-                          style: TextStyle(color: Colors.white),
+                        if (!isSystemApp)
+                          ListTile(
+                            leading: const Icon(Icons.delete, color: Colors.red),
+                            title: Text(
+                              'Uninstall',
+                              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                            ),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await InstalledApps.uninstallApp(application.packageName);
+                            },
+                          ),
+                        ListTile(
+                          leading: Icon(Icons.info_outline, color: isDarkMode ? Colors.white : Colors.black),
+                          title: Text(
+                            'App Info',
+                            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            InstalledApps.openSettings(application.packageName);
+                          },
                         ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          InstalledApps.openSettings(application.packageName);
-                        },
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       );
     }
   }
-
-
 
   Future<void> _loadAddedWidgets() async {
     if (mounted) {
@@ -591,7 +689,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -696,7 +793,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       ),
     );
   }
-
 
   Widget _buildAppsList() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -824,74 +920,76 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               HapticFeedback.heavyImpact();
               showModalBottomSheet(
                 context: context,
-                backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
+                backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
-                builder: (context) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.reorder, color: Colors.white),
-                      title: const Text(
-                        'Reorder Widgets',
-                        style: TextStyle(color: Colors.white),
+                builder: (context) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.reorder, color: isDarkMode ? Colors.white : Colors.black),
+                        title: Text(
+                          'Reorder Widgets',
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            _isReorderingWidgets = true;
+                          });
+                        },
                       ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          _isReorderingWidgets = true;
-                        });
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.delete_sweep, color: Colors.red),
-                      title: const Text(
-                        'Remove All Widgets',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
-                            title: const Text(
-                              'Clear All Widgets',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            content: const Text(
-                              'Are you sure you want to remove all widgets?',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Cancel'),
+                      ListTile(
+                        leading: Icon(Icons.delete_sweep, color: Colors.red),
+                        title: Text(
+                          'Remove All Widgets',
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+                              title: Text(
+                                'Clear All Widgets',
+                                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
                               ),
-                              TextButton(
-                                onPressed: () async {
-                                  Navigator.pop(context);
-                                  for (var widget in _addedWidgets) {
-                                    if (widget.widgetId != null) {
-                                      await WidgetManager.removeWidget(widget.widgetId!);
-                                    }
-                                  }
-                                  await _loadAddedWidgets();
-                                  setState(() {});
-                                },
-                                child: const Text(
-                                  'Remove All',
-                                  style: TextStyle(color: Colors.red),
+                              content: Text(
+                                'Are you sure you want to remove all widgets?',
+                                style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    for (var widget in _addedWidgets) {
+                                      if (widget.widgetId != null) {
+                                        await WidgetManager.removeWidget(widget.widgetId!);
+                                      }
+                                    }
+                                    await _loadAddedWidgets();
+                                    setState(() {});
+                                  },
+                                  child: Text(
+                                    'Remove All',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
               );
             }
           },
@@ -1004,8 +1102,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _showAddWidgetDialog,
-            backgroundColor: Colors.white.withAlpha(51),
-            child: const Icon(Icons.add, color: Colors.white),
+            backgroundColor: isDarkMode ? const Color(0xFF6750A4) : const Color(0xFF6200EE),
+            child: Icon(Icons.add, color: Colors.white),
           ),
         ),
       ],
@@ -1026,7 +1124,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
+              backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
               title: const Text(
                 'Add Widget',
                 style: TextStyle(color: Colors.white),
@@ -1040,10 +1138,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search widgets...',
-                        hintStyle: TextStyle(color: Colors.white.withAlpha(128)),
-                        prefixIcon: Icon(Icons.search, color: Colors.white.withAlpha(179)),
+                        hintStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
+                        prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.white70 : Colors.black54),
                         filled: true,
-                        fillColor: Colors.white.withAlpha(26),
+                        fillColor: isDarkMode ? const Color(0xFF3A3A3A) : const Color(0xFFE0E0E0),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -1082,12 +1180,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               ...entry.value.map((widget) => ListTile(
                                 title: Text(
                                   widget.label,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
                                 ),
                                 subtitle: Text(
                                   '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
                                   '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
-                                  style: TextStyle(color: Colors.white.withAlpha(128)),
+                                  style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
                                 ),
                                 onTap: () async {
                                   Navigator.pop(context);
@@ -1098,7 +1196,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   }
                                 },
                               )),
-                              const Divider(color: Colors.white24),
+                              Divider(color: isDarkMode ? const Color(0x3DFFFFFF) : const Color(0x3D000000)),
                             ],
                           );
                         },
@@ -1145,7 +1243,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     HapticFeedback.heavyImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
+      backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1153,105 +1251,107 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
       isScrollControlled: true,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
-              borderRadius: BorderRadius.circular(2),
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: _getBottomSheetPadding(context),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      child: Row(
-                        children: [
-                          FutureBuilder<Widget>(
-                            future: _getAppIcon(widget.packageName),
-                            builder: (context, snapshot) {
-                              if (snapshot.hasData) {
-                                return SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: snapshot.data,
-                                );
-                              }
-                              return const SizedBox(width: 40, height: 40);
-                            },
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.label,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  widget.appName,
-                                  style: TextStyle(
-                                    color: (Colors.grey[400] ?? Colors.grey),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: _getBottomSheetPadding(context),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                        child: Row(
+                          children: [
+                            FutureBuilder<Widget>(
+                              future: _getAppIcon(widget.packageName),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  return SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: snapshot.data,
+                                  );
+                                }
+                                return const SizedBox(width: 40, height: 40);
+                              },
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.label,
+                                    style: TextStyle(
+                                      color: isDarkMode ? Colors.white : Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    widget.appName,
+                                    style: TextStyle(
+                                      color: isDarkMode ? Colors.white70 : Colors.black54,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.reorder, color: Colors.white),
-                      title: const Text(
-                        'Reorder Widgets',
-                        style: TextStyle(color: Colors.white),
+                      ListTile(
+                        leading: Icon(Icons.reorder, color: isDarkMode ? Colors.white : Colors.black),
+                        title: Text(
+                          'Reorder Widgets',
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            _isReorderingWidgets = true;
+                          });
+                        },
                       ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          _isReorderingWidgets = true;
-                        });
-                      },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.delete, color: Colors.red),
-                      title: const Text(
-                        'Remove Widget',
-                        style: TextStyle(color: Colors.white),
+                      ListTile(
+                        leading: Icon(Icons.delete, color: Colors.red),
+                        title: Text(
+                          'Remove Widget',
+                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          if (widget.widgetId != null) {
+                            await WidgetManager.removeWidget(widget.widgetId!);
+                            await _loadAddedWidgets();
+                            setState(() {});
+                          }
+                        },
                       ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        if (widget.widgetId != null) {
-                          await WidgetManager.removeWidget(widget.widgetId!);
-                          await _loadAddedWidgets();
-                          setState(() {});
-                        }
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -1354,81 +1454,82 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     await prefs.setStringList('widget_order', widgetIds);
   }
 
-
   void _showAppListSortOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: (Colors.grey[900] ?? Colors.grey).withAlpha(128),
+      backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
-      builder: (context) => SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: _getBottomSheetPadding(context),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: (Colors.grey[600] ?? Colors.grey).withAlpha(26),
-                  borderRadius: BorderRadius.circular(2),
+      builder: (context) {
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: _getBottomSheetPadding(context),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.trending_up, color: Colors.white),
-                title: const Text('Sort by Usage', style: TextStyle(color: Colors.white)),
-                trailing: _appListSortType == AppListSortType.usage
-                    ? const Icon(Icons.check, color: Colors.white)
-                    : null,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await AppUsageTracker.sortAppList(_apps, AppListSortType.usage);
-                  setState(() {
-                    _appListSortType = AppListSortType.usage;
-                    _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-                  });
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.sort_by_alpha, color: Colors.white),
-                title: const Text('Sort A to Z', style: TextStyle(color: Colors.white)),
-                trailing: _appListSortType == AppListSortType.alphabeticalAsc
-                    ? const Icon(Icons.check, color: Colors.white)
-                    : null,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalAsc);
-                  setState(() {
-                    _appListSortType = AppListSortType.alphabeticalAsc;
-                    _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-                  });
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.sort_by_alpha_rounded, color: Colors.white),
-                title: const Text('Sort Z to A', style: TextStyle(color: Colors.white)),
-                trailing: _appListSortType == AppListSortType.alphabeticalDesc
-                    ? const Icon(Icons.check, color: Colors.white)
-                    : null,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalDesc);
-                  setState(() {
-                    _appListSortType = AppListSortType.alphabeticalDesc;
-                    _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-                  });
-                },
-              ),
-            ],
+                ListTile(
+                  leading: Icon(Icons.trending_up, color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort by Usage', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  trailing: _appListSortType == AppListSortType.usage
+                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await AppUsageTracker.sortAppList(_apps, AppListSortType.usage);
+                    setState(() {
+                      _appListSortType = AppListSortType.usage;
+                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                    });
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.sort_by_alpha, color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort A to Z', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  trailing: _appListSortType == AppListSortType.alphabeticalAsc
+                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalAsc);
+                    setState(() {
+                      _appListSortType = AppListSortType.alphabeticalAsc;
+                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                    });
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.sort_by_alpha_rounded, color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort Z to A', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  trailing: _appListSortType == AppListSortType.alphabeticalDesc
+                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      : null,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalDesc);
+                    setState(() {
+                      _appListSortType = AppListSortType.alphabeticalDesc;
+                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1468,14 +1569,68 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        'Pinned Apps',
-        style: TextStyle(
-          color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Pinned Apps',
+              style: TextStyle(
+                color: isDarkMode 
+                    ? const Color.fromARGB(230, 255, 255, 255) // 0.9 opacity (230/255)
+                    : const Color.fromARGB(204, 0, 0, 0), // 0.8 opacity (204/255)
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String letter) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDarkMode 
+                  ? const Color.fromARGB(51, 103, 80, 164) // 0.2 opacity (51/255)
+                  : const Color.fromARGB(26, 103, 80, 164), // 0.1 opacity (26/255)
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Center(
+              child: Text(
+                letter,
+                style: TextStyle(
+                  color: isDarkMode ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: isDarkMode 
+                  ? const Color.fromARGB(26, 255, 255, 255) // 0.1 opacity (26/255)
+                  : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1491,10 +1646,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           height: 48,
           decoration: BoxDecoration(
             color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             child: app.icon != null
                 ? Image.memory(app.icon!)
                 : const Icon(Icons.android, color: Colors.white),
@@ -1504,6 +1666,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           app.name,
           style: TextStyle(
             color: isDarkMode ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w500,
           ),
         ),
         trailing: Icon(
@@ -1537,23 +1700,33 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       children: [
         ListTile(
           leading: Container(
-            width: 48,
-            height: 48,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
               child: FutureBuilder<Uint8List?>(
                 future: _loadAppIcon(app.packageName),
                 builder: (context, snapshot) {
                   if (snapshot.hasData && snapshot.data != null) {
-                    return Image.memory(
-                      snapshot.data!,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.contain,
+                    return Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Image.memory(
+                        snapshot.data!,
+                        width: 46,
+                        height: 46,
+                        fit: BoxFit.contain,
+                      ),
                     );
                   }
                   return const Icon(
@@ -1568,53 +1741,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             app.name,
             style: TextStyle(
               color: isDarkMode ? Colors.white : Colors.black,
-              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          trailing: isPinned
-              ? Icon(
-                  Icons.push_pin,
-                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                  size: 20,
+          subtitle: _showNotificationBadges && _notificationCounts.containsKey(app.packageName) && _notificationCounts[app.packageName]! > 0
+              ? Text(
+                  '${_notificationCounts[app.packageName]} notification${_notificationCounts[app.packageName]! > 1 ? 's' : ''}',
+                  style: TextStyle(
+                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                    fontSize: 12,
+                  ),
                 )
               : null,
           onTap: () async {
-            await InstalledApps.startApp(app.packageName);
-            await AppUsageTracker.recordAppLaunch(app.packageName);
-          },
+              HapticFeedback.selectionClick();
+              await InstalledApps.startApp(app.packageName);
+              await AppUsageTracker.recordAppLaunch(app.packageName);
+            },
           onLongPress: () {
-            HapticFeedback.heavyImpact();
-            _showAppOptions(context, app, isPinned);
+              _showAppOptions(context, app, isPinned);
           },
+          trailing: isPinned
+              ? Icon(
+                  Icons.star,
+                  color: isDarkMode ? Colors.amber : Colors.orange,
+                )
+              : null,
         ),
-        if (_showNotificationBadges && 
-            _notificationCounts.containsKey(app.packageName) && 
-            _notificationCounts[app.packageName]! > 0)
-          Positioned(
-            top: 5,
-            left: 48,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Center(
-                child: Text(
-                  '${_notificationCounts[app.packageName]}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -1640,8 +1796,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return null;
   }
 
-
-
   double _getBottomSheetPadding(BuildContext context) {
     // Get the bottom padding (includes navigation bar height)
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
@@ -1655,78 +1809,110 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
   }
 
-
   Widget _buildSearchBar() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final controller = _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TextField(
-        controller: controller,
-        focusNode: _searchFocusNode,
-        style: TextStyle(
-          color: isDarkMode ? Colors.white : Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        decoration: InputDecoration(
-          hintText: _isSelectingAppsToHide 
-              ? 'Search apps to hide...' 
-              : _showingHiddenApps 
-                  ? 'Search hidden apps...'
-                  : 'Search apps...',
-          hintStyle: TextStyle(
-            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+        child: TextField(
+          controller: controller,
+          focusNode: _searchFocusNode,
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black,
+            fontSize: 16,
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-          ),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: isDarkMode ? Colors.white : Colors.black),
-                  onPressed: () {
-                    setState(() {
-                      controller.clear();
-                    });
-                  },
-                )
-              : _isSelectingAppsToHide ? null : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.sort, color: isDarkMode ? Colors.white : Colors.black),
+          decoration: InputDecoration(
+            hintText: _isSelectingAppsToHide 
+                ? 'Search apps to hide...' 
+                : _showingHiddenApps 
+                    ? 'Search hidden apps...'
+                    : 'Search apps...',
+            hintStyle: TextStyle(
+              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+              fontSize: 16,
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+              size: 22,
+            ),
+            suffixIcon: controller.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      Icons.clear, 
+                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                      size: 22,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        controller.clear();
+                      });
+                    },
+                  )
+                : _isSelectingAppsToHide ? null : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.sort, 
+                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                        size: 22,
+                      ),
                       onPressed: _showAppListSortOptions,
                     ),
                     IconButton(
-                      icon: Icon(Icons.settings, color: isDarkMode ? Colors.white : Colors.black),
-                      onPressed: () {
-                        NavigationState.currentScreen = 'settings';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SettingsPage(
-                              isSearchBarAtTop: _isSearchBarAtTop,
-                              onSearchBarPositionChanged: _updateSearchBarPosition,
-                              onNotificationBadgesChanged: (value) {
-                                setState(() {
-                                  _showNotificationBadges = value;
-                                });
-                              },
-                            ),
-                          ),
-                        ).then((_) => NavigationState.currentScreen = 'main');
-                      },
+                      icon: Icon(
+                        Icons.settings, 
+                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                      size: 22,
                     ),
-                  ],
-                ),
-          filled: true,
-          fillColor: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
+                    onPressed: () {
+                      NavigationState.currentScreen = 'settings';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SettingsPage(
+                            isSearchBarAtTop: _isSearchBarAtTop,
+                            onSearchBarPositionChanged: _updateSearchBarPosition,
+                            onNotificationBadgesChanged: (value) {
+                              setState(() {
+                                _showNotificationBadges = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ).then((_) => NavigationState.currentScreen = 'main');
+                    },
+                  ),
+                ],
+              ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: isDarkMode 
+                ? const Color(0xFF2D2D2D) 
+                : Colors.grey.shade50,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
+          onChanged: (value) => setState(() {}),
         ),
-        onChanged: (value) => setState(() {}),
       ),
     );
   }
@@ -1845,7 +2031,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   bool get isDarkMode => Theme.of(context).brightness == Brightness.dark;
-
 
   Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
     // Return null if no preview image is provided

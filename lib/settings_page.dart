@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'about_page.dart';
 import 'navigation_state.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isSearchBarAtTop;
@@ -72,13 +73,15 @@ class _SettingsPageState extends State<SettingsPage> {
       },
       child: Scaffold(
         backgroundColor: isDarkMode 
-            ? Colors.black 
-            : Colors.white,
+            ? const Color(0xFF121212)
+            : Colors.grey.shade50,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(
             'Settings',
-            style: TextStyle(
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
           ),
@@ -89,142 +92,242 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             onPressed: () => Navigator.pop(context),
           ),
+          elevation: 0,
         ),
         body: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           children: [
-            ListTile(
-              leading: Icon(
-                Icons.search, 
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-              title: Text(
-                'Search Bar Position',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
+            _buildSettingsCategory("Interface"),
+            const SizedBox(height: 8),
+            _buildSettingsCard(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.search, 
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    size: 22,
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                _currentPosition ? 'Top' : 'Bottom',
-                style: TextStyle(
-                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                title: Text(
+                  'Search Bar Position',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
                 ),
-              ),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-                    title: Text(
-                      'Search Bar Position',
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.white : Colors.black,
+                subtitle: Text(
+                  _currentPosition ? 'Top' : 'Bottom',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                  ),
+                ),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: Text(
+                        'Search Bar Position',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioListTile(
+                            title: Text(
+                              'Top',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            value: true,
+                            groupValue: _currentPosition,
+                            activeColor: const Color(0xFF6750A4),
+                            onChanged: (value) {
+                              widget.onSearchBarPositionChanged(true);
+                              setState(() {
+                                _currentPosition = true;
+                              });
+                              Navigator.pop(context);
+                            },
+                          ),
+                          RadioListTile(
+                            title: Text(
+                              'Bottom',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            value: false,
+                            groupValue: _currentPosition,
+                            activeColor: const Color(0xFF6750A4),
+                            onChanged: (value) {
+                              widget.onSearchBarPositionChanged(false);
+                              setState(() {
+                                _currentPosition = false;
+                              });
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RadioListTile(
-                          title: Text(
-                            'Top',
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          value: true,
-                          groupValue: _currentPosition,
-                          onChanged: (value) {
-                            widget.onSearchBarPositionChanged(true);
-                            setState(() {
-                              _currentPosition = true;
-                            });
-                            Navigator.pop(context);
-                          },
-                        ),
-                        RadioListTile(
-                          title: Text(
-                            'Bottom',
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          value: false,
-                          groupValue: _currentPosition,
-                          onChanged: (value) {
-                            widget.onSearchBarPositionChanged(false);
-                            setState(() {
-                              _currentPosition = false;
-                            });
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ],
-                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildSettingsCard(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                );
-              },
+                  child: Icon(
+                    Icons.wallpaper, 
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    size: 22,
+                  ),
+                ),
+                title: Text(
+                  'Change Wallpaper',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                onTap: () => _changeWallpaper(context),
+              ),
             ),
-            ListTile(
-              leading: Icon(
-                Icons.wallpaper, 
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-              title: Text(
-                'Change Wallpaper',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
+            const SizedBox(height: 16),
+            _buildSettingsCard(
+              child: SwitchListTile(
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.notification_important,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    size: 22,
+                  ),
                 ),
-              ),
-              onTap: () => _changeWallpaper(context),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.notification_important,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-              title: Text(
-                'Notification Badges',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
+                title: Text(
+                  'Notification Badges',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                _showNotificationBadges ? 'Shown' : 'Hidden',
-                style: TextStyle(
-                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                subtitle: Text(
+                  _showNotificationBadges ? 'Shown' : 'Hidden',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                  ),
                 ),
-              ),
-              trailing: Switch(
                 value: _showNotificationBadges,
+                activeColor: const Color(0xFF6750A4),
                 onChanged: _toggleNotificationBadges,
               ),
             ),
-            Divider(
-              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.info_outline,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-              title: Text(
-                'About',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
+            const SizedBox(height: 24),
+            _buildSettingsCategory("About"),
+            const SizedBox(height: 8),
+            _buildSettingsCard(
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    size: 22,
+                  ),
                 ),
+                title: Text(
+                  'About FLauncher',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                onTap: () {
+                  NavigationState.currentScreen = 'about';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AboutPage()),
+                  ).then((_) {
+                    NavigationState.currentScreen = 'settings';
+                  });
+                },
               ),
-              onTap: () {
-                NavigationState.currentScreen = 'about';
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AboutPage()),
-                ).then((_) {
-                  NavigationState.currentScreen = 'settings';
-                });
-              },
             ),
           ],
         ),
       ),
+    );
+  }
+  
+  Widget _buildSettingsCategory(String title) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+          color: isDarkMode 
+              ? const Color(0xFFD0BCFF)
+              : const Color(0xFF6750A4),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSettingsCard({required Widget child}) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 } 
