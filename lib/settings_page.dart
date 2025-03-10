@@ -4,17 +4,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'about_page.dart';
 import 'navigation_state.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'layouts/app_layout_manager.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isSearchBarAtTop;
   final Function(bool) onSearchBarPositionChanged;
   final Function(bool) onNotificationBadgesChanged;
+  final VoidCallback onLayoutChanged;
 
   const SettingsPage({
     super.key,
     required this.isSearchBarAtTop,
     required this.onSearchBarPositionChanged,
     required this.onNotificationBadgesChanged,
+    required this.onLayoutChanged,
   });
 
   @override
@@ -24,12 +27,16 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _currentPosition;
   late bool _showNotificationBadges;
+  late AppLayoutType _currentLayout;
+  late int _gridColumns;
+  bool _layoutInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _currentPosition = widget.isSearchBarAtTop;
     _loadSettings();
+    _loadLayoutSettings();
   }
 
   Future<void> _loadSettings() async {
@@ -37,6 +44,18 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _showNotificationBadges = prefs.getBool('show_notification_badges') ?? true;
     });
+  }
+
+  Future<void> _loadLayoutSettings() async {
+    final layout = await AppLayoutManager.getCurrentLayout();
+    final columns = await AppLayoutManager.getGridColumns();
+    if (mounted) {
+      setState(() {
+        _currentLayout = layout;
+        _gridColumns = columns;
+        _layoutInitialized = true;
+      });
+    }
   }
 
   Future<void> _toggleNotificationBadges(bool value) async {
@@ -59,6 +78,139 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       }
     }
+  }
+
+  void _showLayoutSettingsDialog(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'App Layout',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
+        ),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RadioListTile<AppLayoutType>(
+                    title: Text(
+                      'List View',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    value: AppLayoutType.list,
+                    groupValue: _currentLayout,
+                    onChanged: (value) async {
+                      await AppLayoutManager.saveLayoutPreference(AppLayoutType.list);
+                      setDialogState(() {
+                        _currentLayout = AppLayoutType.list;
+                      });
+                      setState(() {
+                        _currentLayout = AppLayoutType.list;
+                      });
+                      widget.onLayoutChanged();
+                    },
+                  ),
+                  RadioListTile<AppLayoutType>(
+                    title: Text(
+                      'Grid View',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    value: AppLayoutType.grid,
+                    groupValue: _currentLayout,
+                    onChanged: (value) async {
+                      await AppLayoutManager.saveLayoutPreference(AppLayoutType.grid);
+                      setDialogState(() {
+                        _currentLayout = AppLayoutType.grid;
+                      });
+                      setState(() {
+                        _currentLayout = AppLayoutType.grid;
+                      });
+                      widget.onLayoutChanged();
+                    },
+                  ),
+                  if (_currentLayout == AppLayoutType.grid) ...[
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Grid Columns:',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          Text(
+                            _gridColumns.toString(),
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Slider(
+                      value: _gridColumns.toDouble(),
+                      min: 2,
+                      max: 6,
+                      divisions: 4,
+                      label: _gridColumns.toString(),
+                      activeColor: const Color(0xFF6750A4),
+                      onChanged: (value) async {
+                        final newColumns = value.round();
+                        await AppLayoutManager.saveGridColumns(newColumns);
+                        setDialogState(() {
+                          _gridColumns = newColumns;
+                        });
+                        setState(() {
+                          _gridColumns = newColumns;
+                        });
+                        widget.onLayoutChanged();
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Close',
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF6750A4),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -157,12 +309,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             value: true,
                             groupValue: _currentPosition,
-                            activeColor: const Color(0xFF6750A4),
                             onChanged: (value) {
-                              widget.onSearchBarPositionChanged(true);
                               setState(() {
                                 _currentPosition = true;
                               });
+                              widget.onSearchBarPositionChanged(true);
                               Navigator.pop(context);
                             },
                           ),
@@ -176,12 +327,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             value: false,
                             groupValue: _currentPosition,
-                            activeColor: const Color(0xFF6750A4),
                             onChanged: (value) {
-                              widget.onSearchBarPositionChanged(false);
                               setState(() {
                                 _currentPosition = false;
                               });
+                              widget.onSearchBarPositionChanged(false);
                               Navigator.pop(context);
                             },
                           ),
@@ -192,7 +342,43 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            if (_layoutInitialized)
+              _buildSettingsCard(
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      AppLayoutManager.getLayoutIcon(_currentLayout), 
+                      color: isDarkMode ? Colors.white : Colors.black,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    'App Layout',
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  subtitle: Text(
+                    AppLayoutManager.layoutToDisplayName(_currentLayout),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                    ),
+                  ),
+                  onTap: () {
+                    _showLayoutSettingsDialog(context);
+                  },
+                ),
+              ),
+            const SizedBox(height: 12),
             _buildSettingsCard(
               child: ListTile(
                 leading: Container(

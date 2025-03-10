@@ -19,6 +19,10 @@ import 'dart:convert' show base64Decode;
 import 'live_widget_preview.dart';
 import 'database/app_database.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'layouts/app_layout_switcher.dart';
+import 'package:flutter/gestures.dart';
+import 'layouts/app_layout_manager.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -205,6 +209,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   final Set<String> _pinnedAppsBackup = {};
   bool _isSelectingAppsToHide = false;
   final Map<int, Uint8List> _widgetPreviewCache = {};
+  Key _appLayoutKey = UniqueKey();
+  bool _isWidgetsScrolling = false;
+  Timer? _widgetsScrollEndTimer;
 
   @override
   void initState() {
@@ -268,6 +275,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
       return null;
     });
+    _widgetsScrollController.addListener(_widgetsScrollListener);
   }
 
   Future<void> _loadSettings() async {
@@ -452,7 +460,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
-        backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+        backgroundColor: isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -777,7 +785,22 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   ),
                 Expanded(
                   child: _isSelectingAppsToHide
-                      ? _buildAppListContent()
+                      ? AppLayoutSwitcher(
+                          key: _appLayoutKey,
+                          apps: _apps,
+                          pinnedApps: _pinnedApps,
+                          showingHiddenApps: _showingHiddenApps,
+                          onAppLongPress: _showAppOptions,
+                          isSelectingAppsToHide: _isSelectingAppsToHide,
+                          hiddenApps: _hiddenApps,
+                          onAppLaunch: (packageName) async {
+                            await AppUsageTracker.recordAppLaunch(packageName);
+                          },
+                          sortType: _appListSortType,
+                          notificationCounts: _notificationCounts,
+                          showNotificationBadges: _showNotificationBadges,
+                          searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+                        )
                       : TabBarView(
                           controller: _tabController,
                           children: [
@@ -901,7 +924,22 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               ),
             ),
           Expanded(
-            child: _buildAppListContent(),
+            child: AppLayoutSwitcher(
+              key: _appLayoutKey,
+              apps: _apps,
+              pinnedApps: _pinnedApps,
+              showingHiddenApps: _showingHiddenApps,
+              onAppLongPress: _showAppOptions,
+              isSelectingAppsToHide: _isSelectingAppsToHide,
+              hiddenApps: _hiddenApps,
+              onAppLaunch: (packageName) async {
+                await AppUsageTracker.recordAppLaunch(packageName);
+              },
+              sortType: _appListSortType,
+              notificationCounts: _notificationCounts,
+              showNotificationBadges: _showNotificationBadges,
+              searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+            ),
           ),
           if (!_isSearchBarAtTop) _buildSearchBar(),
         ],
@@ -1043,49 +1081,57 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     : Theme(
                         data: Theme.of(context).copyWith(
                           canvasColor: Colors.transparent,
+                          scrollbarTheme: ScrollbarThemeData(
+                            thumbColor: MaterialStateProperty.all(Colors.white.withAlpha(77)),
+                            radius: const Radius.circular(20),
+                            thickness: MaterialStateProperty.all(6.0),
+                            interactive: true,
+                          ),
                         ),
-                        child: RawScrollbar(
+                        child: Scrollbar(
                           controller: _widgetsScrollController,
-                          thumbColor: Colors.white.withAlpha(77),
-                          radius: const Radius.circular(20),
-                          thickness: 6,
-                          thumbVisibility: true,
-                          trackVisibility: false,
-                          child: ReorderableListView.builder(
-                            scrollController: _widgetsScrollController,
-                            onReorder: (oldIndex, newIndex) {
-                              setState(() {
-                                if (oldIndex < newIndex) {
-                                  newIndex -= 1;
-                                }
-                                final item = _addedWidgets.removeAt(oldIndex);
-                                _addedWidgets.insert(newIndex, item);
-                              });
-                              _saveWidgetOrder();
-                            },
-                            onReorderStart: (_) {
-                              HapticFeedback.heavyImpact();
-                            },
-                            itemCount: _addedWidgets.length,
-                            itemBuilder: (context, index) => Padding(
-                              key: ValueKey(_addedWidgets[index].widgetId),
-                              padding: const EdgeInsets.all(16),
-                              child: ResizableWidget(
-                                isReorderMode: _isReorderingWidgets,
-                                onLongPress: () => _showWidgetOptions(
-                                  context, 
-                                  _addedWidgets[index]
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  height: _addedWidgets[index].minHeight.toDouble(),
-                                  decoration: BoxDecoration(
-                                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-                                    borderRadius: BorderRadius.circular(10),
+                          thumbVisibility: _isWidgetsScrolling,
+                          interactive: true,
+                          child: ScrollConfiguration(
+                            behavior: AppScrollBehavior().copyWith(
+                              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            ),
+                            child: ReorderableListView.builder(
+                              scrollController: _widgetsScrollController,
+                              onReorder: (oldIndex, newIndex) {
+                                setState(() {
+                                  if (oldIndex < newIndex) {
+                                    newIndex -= 1;
+                                  }
+                                  final item = _addedWidgets.removeAt(oldIndex);
+                                  _addedWidgets.insert(newIndex, item);
+                                });
+                                _saveWidgetOrder();
+                              },
+                              onReorderStart: (_) {
+                                HapticFeedback.heavyImpact();
+                              },
+                              itemCount: _addedWidgets.length,
+                              itemBuilder: (context, index) => Padding(
+                                key: ValueKey(_addedWidgets[index].widgetId),
+                                padding: const EdgeInsets.all(16),
+                                child: ResizableWidget(
+                                  isReorderMode: _isReorderingWidgets,
+                                  onLongPress: () => _showWidgetOptions(
+                                    context, 
+                                    _addedWidgets[index]
                                   ),
-                                  child: LiveWidgetPreview(
-                                    widgetId: _addedWidgets[index].widgetId!,
-                                    minHeight: _addedWidgets[index].minHeight,
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: _addedWidgets[index].minHeight.toDouble(),
+                                    decoration: BoxDecoration(
+                                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: LiveWidgetPreview(
+                                      widgetId: _addedWidgets[index].widgetId!,
+                                      minHeight: _addedWidgets[index].minHeight,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1766,8 +1812,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           },
           trailing: isPinned
               ? Icon(
-                  Icons.star,
-                  color: isDarkMode ? Colors.amber : Colors.orange,
+                  Icons.push_pin,
+                  color: isDarkMode ? Colors.grey : Colors.black,
                 )
               : null,
         ),
@@ -1876,28 +1922,29 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       icon: Icon(
                         Icons.settings, 
                       color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      NavigationState.currentScreen = 'settings';
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SettingsPage(
-                            isSearchBarAtTop: _isSearchBarAtTop,
-                            onSearchBarPositionChanged: _updateSearchBarPosition,
-                            onNotificationBadgesChanged: (value) {
-                              setState(() {
-                                _showNotificationBadges = value;
-                              });
-                            },
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        NavigationState.currentScreen = 'settings';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SettingsPage(
+                              isSearchBarAtTop: _isSearchBarAtTop,
+                              onSearchBarPositionChanged: _updateSearchBarPosition,
+                              onNotificationBadgesChanged: (value) {
+                                setState(() {
+                                  _showNotificationBadges = value;
+                                });
+                              },
+                              onLayoutChanged: _refreshAppLayout,
+                            ),
                           ),
-                        ),
-                      ).then((_) => NavigationState.currentScreen = 'main');
-                    },
-                  ),
-                ],
-              ),
+                        ).then((_) => NavigationState.currentScreen = 'main');
+                      },
+                    ),
+                  ],
+                ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -1939,97 +1986,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _pinnedAppsBackup.addAll(backup);
   }
 
-  Widget _buildAppListContent() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    // When selecting apps to hide, show filtered apps list
-    if (_isSelectingAppsToHide) {
-      return Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _filteredApps.length,
-              itemBuilder: (context, index) {
-                final app = _filteredApps[index];
-                return _buildAppTile(app, false);
-              },
-            ),
-          ),
-        ],
-      );
-    }
-
-    return RawScrollbar(
-      controller: _scrollController,
-      thumbColor: Colors.white.withAlpha(77),
-      radius: const Radius.circular(20),
-      thickness: 6,
-      thumbVisibility: true,
-      trackVisibility: false,
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          if (!_showingHiddenApps && _pinnedApps.isNotEmpty && _searchController.text.isEmpty) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildPinnedAppsHeader(),
-              ),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildAppTile(_pinnedApps[index], true),
-                ),
-                childCount: _pinnedApps.length,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Divider(
-                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(61),
-                ),
-              ),
-            ),
-          ],
-          ...AppSectionManager.createSections(
-            _filteredApps,
-            sortType: _appListSortType
-          ).expand((section) => [
-            if (_appListSortType != AppListSortType.usage) 
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Text(
-                    section.letter,
-                    style: TextStyle(
-                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildAppTile(section.apps[index], false),
-                ),
-                childCount: section.apps.length,
-              ),
-            ),
-          ]),
-        ],
-      ),
-    );
-  }
-
   bool get isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
   Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
@@ -2052,5 +2008,31 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       debugPrint('Error decoding widget preview image: $e');
       return null;
     }
+  }
+
+  void _refreshAppLayout() {
+    setState(() {
+      // Force rebuild of the app layout
+      _appLayoutKey = UniqueKey();
+    });
+  }
+
+  void _widgetsScrollListener() {
+    // Update scrolling state
+    if (!_isWidgetsScrolling) {
+      setState(() {
+        _isWidgetsScrolling = true;
+      });
+    }
+    
+    // Reset timer on each scroll event
+    _widgetsScrollEndTimer?.cancel();
+    _widgetsScrollEndTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isWidgetsScrolling = false;
+        });
+      }
+    });
   }
 }
