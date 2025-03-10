@@ -40,6 +40,8 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 - 🔒 Prevents accidental launcher exits
 - 🔐 Optional biometric authentication
 - 🎯 Customizable search bar position (top/bottom)
+- 📋 Multiple layout options (List and Grid views)
+- 🎮 Customizable grid columns (2-6 columns)
 
 ## Building from Source
 
@@ -120,6 +122,7 @@ The app uses Flutter's built-in state management with `StatefulWidget` and effic
 - Notification service integration
 - App usage tracking
 - Efficient app sorting and sectioning
+- Multiple layout options (List and Grid)
 
 ### Security Features
 - Biometric authentication support
