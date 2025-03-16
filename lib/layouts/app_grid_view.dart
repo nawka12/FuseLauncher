@@ -7,6 +7,7 @@ import '../app_sections.dart';
 import 'app_layout_manager.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async';
+import '../sort_options.dart';
 
 class AppGridView extends StatefulWidget {
   final List<AppInfo> apps;
@@ -19,6 +20,7 @@ class AppGridView extends StatefulWidget {
   final Map<String, int> notificationCounts;
   final bool showNotificationBadges;
   final TextEditingController searchController;
+  final AppListSortType sortType;
 
   const AppGridView({
     Key? key,
@@ -32,6 +34,7 @@ class AppGridView extends StatefulWidget {
     required this.notificationCounts,
     required this.showNotificationBadges,
     required this.searchController,
+    required this.sortType,
   }) : super(key: key);
 
   @override
@@ -51,6 +54,9 @@ class _AppGridViewState extends State<AppGridView> {
     super.initState();
     _loadColumnCount();
     _scrollController.addListener(_scrollListener);
+    
+    // Add listener to search controller to force rebuild when text changes
+    widget.searchController.addListener(_onSearchChanged);
   }
   
   @override
@@ -58,12 +64,19 @@ class _AppGridViewState extends State<AppGridView> {
     super.didUpdateWidget(oldWidget);
     // Reload column count when widget updates
     _loadColumnCount();
+    
+    // Update search controller listener if the controller has changed
+    if (widget.searchController != oldWidget.searchController) {
+      oldWidget.searchController.removeListener(_onSearchChanged);
+      widget.searchController.addListener(_onSearchChanged);
+    }
   }
   
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    widget.searchController.removeListener(_onSearchChanged);
     super.dispose();
   }
   
@@ -131,6 +144,14 @@ class _AppGridViewState extends State<AppGridView> {
     }
   }
 
+  void _onSearchChanged() {
+    if (mounted) {
+      setState(() {
+        // Just force a rebuild when search text changes
+      });
+    }
+  }
+
   Future<void> _loadColumnCount() async {
     final columns = await AppLayoutManager.getGridColumns();
     if (mounted) {
@@ -161,6 +182,19 @@ class _AppGridViewState extends State<AppGridView> {
       apps = widget.showingHiddenApps 
           ? widget.apps.where((app) => widget.hiddenApps.contains(app.packageName)).toList()
           : widget.apps.where((app) => !widget.hiddenApps.contains(app.packageName)).toList();
+      
+      // Apply sort type
+      switch (widget.sortType) {
+        case AppListSortType.alphabeticalAsc:
+          apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          break;
+        case AppListSortType.alphabeticalDesc:
+          apps.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+          break;
+        case AppListSortType.usage:
+          // Leave as is, will be sorted by usage later
+          break;
+      }
       
       final query = widget.searchController.text.toLowerCase();
       if (query.isEmpty) return apps;
@@ -371,6 +405,7 @@ class _AppGridViewState extends State<AppGridView> {
               // Regular apps
               ...AppSectionManager.createSections(
                 _filteredApps,
+                sortType: widget.sortType,
               ).expand((section) => [
                 SliverToBoxAdapter(
                   child: _buildSectionHeader(section.letter),

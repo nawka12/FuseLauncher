@@ -412,16 +412,27 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       return apps;
     } else {
       // Normal app list filtering
-      apps = _showingHiddenApps 
-          ? _apps.where((app) => _hiddenApps.contains(app.packageName)).toList()
-          : _apps.where((app) => !_hiddenApps.contains(app.packageName)).toList();
+      if (_showingHiddenApps) {
+        apps = _apps.where((app) => _hiddenApps.contains(app.packageName)).toList();
+        // Apply search for hidden apps
+        final query = _hiddenAppsSearchController.text.toLowerCase();
+        if (query.isNotEmpty) {
+          apps = apps.where((app) => 
+            (app.name.toLowerCase().contains(query))
+          ).toList();
+        }
+      } else {
+        apps = _apps.where((app) => !_hiddenApps.contains(app.packageName)).toList();
+        // Apply search for normal apps
+        final query = _searchController.text.toLowerCase();
+        if (query.isNotEmpty) {
+          apps = apps.where((app) => 
+            (app.name.toLowerCase().contains(query))
+          ).toList();
+        }
+      }
       
-      final query = _searchController.text.toLowerCase();
-      if (query.isEmpty) return apps;
-      
-      return apps.where((app) => 
-        (app.name.toLowerCase().contains(query))
-      ).toList();
+      return apps;
     }
   }
 
@@ -1857,7 +1868,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Widget _buildSearchBar() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final controller = _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController;
+    final controller = _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController;
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1880,10 +1891,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             fontSize: 16,
           ),
           decoration: InputDecoration(
-            hintText: _isSelectingAppsToHide 
-                ? 'Search apps to hide...' 
-                : _showingHiddenApps 
-                    ? 'Search hidden apps...'
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            hintText: _showingHiddenApps 
+                ? 'Search hidden apps...' 
+                : _isSelectingAppsToHide 
+                    ? 'Search apps to hide...' 
                     : 'Search apps...',
             hintStyle: TextStyle(
               color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
@@ -1897,13 +1909,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             suffixIcon: controller.text.isNotEmpty
                 ? IconButton(
                     icon: Icon(
-                      Icons.clear, 
+                      Icons.clear,
                       color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
                       size: 22,
                     ),
                     onPressed: () {
+                      controller.clear();
                       setState(() {
-                        controller.clear();
+                        // Force rebuild to update the filtered apps
                       });
                     },
                   )
@@ -1950,15 +1963,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               borderSide: BorderSide.none,
             ),
             filled: true,
-            fillColor: isDarkMode 
-                ? const Color(0xFF2D2D2D) 
-                : Colors.grey.shade50,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+            fillColor: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
           ),
-          onChanged: (value) => setState(() {}),
+          onChanged: (_) {
+            setState(() {
+              // Force rebuild when search text changes
+            });
+          },
         ),
       ),
     );

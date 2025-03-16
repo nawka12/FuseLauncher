@@ -246,6 +246,7 @@ class _AppLayoutSwitcherState extends State<AppLayoutSwitcher> {
             notificationCounts: widget.notificationCounts,
             showNotificationBadges: widget.showNotificationBadges,
             searchController: widget.searchController,
+            sortType: widget.sortType,
           );
   }
 } 
