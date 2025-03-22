@@ -8,6 +8,7 @@ import 'app_layout_manager.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async';
 import '../sort_options.dart';
+import '../database/app_database.dart';
 
 class AppGridView extends StatefulWidget {
   final List<AppInfo> apps;
@@ -44,6 +45,7 @@ class AppGridView extends StatefulWidget {
 class _AppGridViewState extends State<AppGridView> {
   int _columnCount = 4;
   final Map<String, Uint8List> _iconCache = {};
+  final int _maxCacheSize = 50;
   final ScrollController _scrollController = ScrollController();
   String? _currentSection;
   bool _isScrolling = false;
@@ -211,10 +213,22 @@ class _AppGridViewState extends State<AppGridView> {
     }
     
     try {
+      // First try to load from database cache
+      final iconData = await AppDatabase.loadIconFromCache(packageName);
+      if (iconData != null) {
+        // Manage cache size
+        if (_iconCache.length >= _maxCacheSize) {
+          _iconCache.remove(_iconCache.keys.first);
+        }
+        _iconCache[packageName] = iconData;
+        return iconData;
+      }
+      
+      // Fallback to loading from app if not in cache
       final app = widget.apps.firstWhere((app) => app.packageName == packageName);
       if (app.icon != null) {
         // Manage cache size
-        if (_iconCache.length >= 50) { // Max cache size
+        if (_iconCache.length >= _maxCacheSize) {
           _iconCache.remove(_iconCache.keys.first);
         }
         _iconCache[packageName] = app.icon!;

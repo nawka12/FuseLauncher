@@ -23,6 +23,7 @@ import 'layouts/app_layout_switcher.dart';
 import 'package:flutter/gestures.dart';
 import 'layouts/app_layout_manager.dart';
 import 'dart:async';
+import 'app_package_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -229,6 +230,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (_apps.isEmpty) {
       _loadApps();
     }
+    
+    // Clean up database on startup
+    _performDatabaseCleanup();
+    
     _loadAddedWidgets();
     _loadSortTypes();
     NotificationService.initialize();
@@ -278,6 +283,20 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _widgetsScrollController.addListener(_widgetsScrollListener);
   }
 
+  /// Clean up the database to ensure it's in sync with installed apps
+  Future<void> _performDatabaseCleanup() async {
+    try {
+      // Get all installed package names directly from device
+      final validPackages = await AppPackageManager.getInstalledPackageNames();
+      
+      // Clean up the database, removing any apps that aren't installed
+      await AppDatabase.cleanupInvalidApps(validPackages);
+      debugPrint('Database cleanup complete');
+    } catch (e) {
+      debugPrint('Error during database cleanup: $e');
+    }
+  }
+
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -315,73 +334,63 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _loadApps({bool background = false}) async {
-    if ((_isLoading && !background) || (_isBackgroundLoading && background)) return;
-    
-    if (background) {
-      _isBackgroundLoading = true;
-    } else {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _loadApps({bool background = false, bool forceRefresh = false}) async {
+    if ((_isLoading && !background) || (_isBackgroundLoading && background)) {
+      debugPrint('Loading already in progress, skipping');
+      return;
     }
     
+    // Create a timeout timer to prevent stuck loading state
+    Timer? timeoutTimer;
+    
     try {
-      // First try to load from cache
-      if (!background) {
-        final cachedApps = await AppDatabase.getCachedApps();
-        if (cachedApps.isNotEmpty) {
-          if (mounted) {
-            setState(() {
-              _apps = cachedApps;
-              _isLoading = false;
-            });
-            await AppUsageTracker.sortAppList(_apps, _appListSortType);
-            await _loadPinnedApps();
-            if (mounted) {
-              setState(() {
-                _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-              });
-            }
-          }
-        }
+      if (background) {
+        setState(() {
+          _isBackgroundLoading = true;
+        });
+      } else {
+        setState(() {
+          _isLoading = true;
+        });
       }
       
-      // Then load fresh data in the background
-      final lastUpdate = await AppDatabase.getLastUpdateTime();
-      final shouldRefresh = lastUpdate == null || 
-          DateTime.now().difference(lastUpdate) > const Duration(hours: 1);
+      // Set a timeout that will reset the loading state if it takes too long
+      timeoutTimer = Timer(const Duration(seconds: 15), () {
+        if (!mounted) return;
+        
+        debugPrint('App loading timeout - resetting loading state');
+        setState(() {
+          if (background) {
+            _isBackgroundLoading = false;
+          } else {
+            _isLoading = false;
+          }
+        });
+      });
       
-      if (shouldRefresh) {
-        final freshApps = await InstalledApps.getInstalledApps(false, true, true);
-        
-        // Cache the fresh data
-        await AppDatabase.cacheApps(freshApps);
-        
+      // First try to load from cache - but only if not forcing refresh
+      if (!background && !forceRefresh) {
+        await _loadCachedApps();
+      }
+      
+      // Then check if we need to refresh from the system
+      final lastUpdate = await AppDatabase.getLastUpdateTime();
+      final now = DateTime.now();
+      final shouldRefresh = forceRefresh || lastUpdate == null || 
+          now.difference(lastUpdate) > const Duration(minutes: 10);
+      
+      if (shouldRefresh || background) {
+        // If we need to update, do it in the background
+        await _refreshApps();
+      } else {
         if (mounted) {
           setState(() {
-            _apps = freshApps;
+            _isBackgroundLoading = false;
           });
-          await AppUsageTracker.sortAppList(_apps, _appListSortType);
-          await _loadPinnedApps();
-          
-          if (mounted) {
-            setState(() {
-              _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
-              if (!background) {
-                _isLoading = false;
-              }
-              _isBackgroundLoading = false;
-            });
-          }
         }
-        
-        // Clear old cache entries
-        await AppDatabase.clearOldCache(const Duration(days: 7));
-      } else {
-        _isBackgroundLoading = false;
       }
     } catch (e) {
+      debugPrint('Error loading apps: $e');
       if (mounted) {
         setState(() {
           if (!background) {
@@ -390,8 +399,164 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           _isBackgroundLoading = false;
         });
       }
-      debugPrint('Error loading apps: $e');
+    } finally {
+      // Cancel the timeout timer if operation completed normally
+      timeoutTimer?.cancel();
     }
+  }
+  
+  Future<void> _loadCachedApps() async {
+    final cachedApps = await AppDatabase.getCachedApps();
+    if (cachedApps.isNotEmpty && mounted) {
+      setState(() {
+        _apps = cachedApps;
+        _isLoading = false;
+      });
+      await AppUsageTracker.sortAppList(_apps, _appListSortType);
+      await _loadPinnedApps();
+      if (mounted) {
+        setState(() {
+          _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+        });
+      }
+    }
+  }
+  
+  Future<void> _refreshApps() async {
+    if (_isBackgroundLoading) {
+      debugPrint('Refresh already in progress, skipping');
+      return;
+    }
+    
+    // Create a timer to ensure loading state doesn't get stuck
+    Timer? timeoutTimer;
+    
+    try {
+      if (mounted) {
+        setState(() {
+          _isBackgroundLoading = true;
+        });
+      }
+      
+      // Set a timeout to reset loading state if it takes too long
+      timeoutTimer = Timer(const Duration(seconds: 10), () {
+        if (mounted && _isBackgroundLoading) {
+          debugPrint('App refresh timeout - resetting loading state');
+          setState(() {
+            _isBackgroundLoading = false;
+          });
+        }
+      });
+      
+      await _refreshAppsInBackground();
+    } catch (e) {
+      debugPrint('Error in refresh apps: $e');
+      if (mounted) {
+        setState(() {
+          _isBackgroundLoading = false;
+        });
+      }
+    } finally {
+      // Cancel the timeout timer if the operation completed normally
+      timeoutTimer?.cancel();
+    }
+  }
+
+  Future<void> _refreshAppsInBackground() async {
+    try {
+      // Fetch all apps directly from the system
+      List<AppInfo> freshApps = [];
+      try {
+        freshApps = await InstalledApps.getInstalledApps(false, true, true);
+      } catch (e) {
+        // If we get an exception fetching all apps, try a safer approach
+        debugPrint('Error fetching all apps: $e');
+        freshApps = await _getSafeInstalledApps();
+      }
+      
+      if (freshApps.isEmpty) {
+        // If we still couldn't get apps, don't proceed with updates
+        debugPrint('Could not get app list - skipping update');
+        if (mounted) {
+          setState(() {
+            _isBackgroundLoading = false;
+          });
+        }
+        return;
+      }
+      
+      // Clean up any invalid apps from the database
+      final validPackageNames = freshApps.map((app) => app.packageName).toList();
+      await AppDatabase.cleanupInvalidApps(validPackageNames);
+      
+      // Track changes between old and new app lists
+      final Set<String> oldPackageNames = _apps.map((app) => app.packageName).toSet();
+      final Set<String> newPackageNames = freshApps.map((app) => app.packageName).toSet();
+      
+      // Find apps that were removed and added
+      final Set<String> removedApps = oldPackageNames.difference(newPackageNames);
+      final Set<String> addedApps = newPackageNames.difference(oldPackageNames);
+      
+      // Log changes for debugging
+      if (removedApps.isNotEmpty) {
+        debugPrint('Detected removed apps: ${removedApps.join(', ')}');
+      }
+      
+      if (addedApps.isNotEmpty) {
+        debugPrint('Detected new apps: ${addedApps.join(', ')}');
+      }
+      
+      // Handle changes to pinned apps if necessary
+      if (removedApps.isNotEmpty) {
+        for (final packageName in removedApps) {
+          // Remove from database
+          await AppDatabase.removeApp(packageName);
+          
+          // Remove from pinned apps list
+          _pinnedApps.removeWhere((app) => app.packageName == packageName);
+        }
+        await _savePinnedApps();
+      }
+      
+      // Cache the fresh data in the database
+      await AppDatabase.cacheApps(freshApps);
+      
+      if (mounted) {
+        // Update the app list with the fresh data
+        setState(() {
+          _apps = freshApps;
+        });
+        
+        // Sort the app list
+        await AppUsageTracker.sortAppList(_apps, _appListSortType);
+        
+        // Refresh pinned apps to ensure consistency
+        await _loadPinnedApps();
+        
+        if (mounted) {
+          setState(() {
+            _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+            _isBackgroundLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isBackgroundLoading = false;
+        });
+      }
+      debugPrint('Error refreshing apps: $e');
+    }
+  }
+
+  // Safely get installed apps with error handling for individual apps
+  Future<List<AppInfo>> _getSafeInstalledApps() async {
+    return AppPackageManager.getInstalledAppsSafely(
+      excludeSystemApps: false,
+      withIcon: true,
+      includeAppSize: false
+    );
   }
 
   List<AppInfo> get _filteredApps {
@@ -631,7 +796,49 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             ),
                             onTap: () async {
                               Navigator.pop(context);
-                              await InstalledApps.uninstallApp(application.packageName);
+                              
+                              try {
+                                // Start the uninstallation process
+                                final uninstalled = await InstalledApps.uninstallApp(application.packageName);
+                                
+                                // Immediately remove from our database
+                                await AppDatabase.removeApp(application.packageName);
+                                
+                                // Remove the app from the current list directly
+                                if (mounted) {
+                                  setState(() {
+                                    _apps.removeWhere((app) => app.packageName == application.packageName);
+                                    _pinnedApps.removeWhere((app) => app.packageName == application.packageName);
+                                    _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                                    // Reset loading indicators to prevent stuck state
+                                    _isBackgroundLoading = false;
+                                    _isLoading = false;
+                                  });
+                                }
+                                
+                                // Force refresh app list with a timeout to prevent stuck loading state
+                                if (mounted) {
+                                  // Set a timeout to ensure loading indicator is reset
+                                  Timer(const Duration(seconds: 5), () {
+                                    if (mounted && _isBackgroundLoading) {
+                                      setState(() {
+                                        _isBackgroundLoading = false;
+                                      });
+                                    }
+                                  });
+                                  
+                                  _loadApps(background: true, forceRefresh: true);
+                                }
+                              } catch (e) {
+                                // If any error occurs, ensure loading states are reset
+                                if (mounted) {
+                                  setState(() {
+                                    _isBackgroundLoading = false;
+                                    _isLoading = false;
+                                  });
+                                }
+                                debugPrint('Error during uninstall: $e');
+                              }
                             },
                           ),
                         ListTile(
@@ -640,9 +847,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             'App Info',
                             style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
                           ),
-                          onTap: () {
+                          onTap: () async {
                             Navigator.pop(context);
-                            InstalledApps.openSettings(application.packageName);
+                            await InstalledApps.openSettings(application.packageName);
+                            
+                            // When returning from app settings, force refresh the app list
+                            // as the user might have uninstalled or updated the app
+                            if (mounted) {
+                              _loadApps(background: true, forceRefresh: true);
+                            }
                           },
                         ),
                       ],
@@ -730,42 +943,106 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 if (_isSelectingAppsToHide)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Select apps to hide',
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Select apps to hide',
+                                style: TextStyle(
+                                  color: isDarkMode ? Colors.white : Colors.black,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            TextButton(
+                              onPressed: () async {
+                                final authenticated = await AuthService.authenticateUser();
+                                if (authenticated) {
+                                  // Save all states first
+                                  await _saveHiddenApps();
+                                  await _savePinnedApps();
+                                  await _savePinnedAppsBackup();
+                                  
+                                  // Clear search bar and update UI state in a single setState
+                                  setState(() {
+                                    _searchController.clear();
+                                    _hiddenAppsSearchController.clear();
+                                    _isSelectingAppsToHide = false;
+                                    _showingHiddenApps = true;
+                                  });
+                                }
+                              },
+                              child: Text(
+                                'Done',
+                                style: TextStyle(
+                                  color: isDarkMode ? Colors.white : Colors.black,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: () async {
-                            final authenticated = await AuthService.authenticateUser();
-                            if (authenticated) {
-                              // Save all states first
-                              await _saveHiddenApps();
-                              await _savePinnedApps();
-                              await _savePinnedAppsBackup();
-                              
-                              // Clear search bar and update UI state in a single setState
-                              setState(() {
-                                _searchController.clear();
-                                _hiddenAppsSearchController.clear();
-                                _isSelectingAppsToHide = false;
-                                _showingHiddenApps = true;
-                              });
-                            }
-                          },
-                          child: Text(
-                            'Done',
+                        const SizedBox(height: 8),
+                        // Search bar for the "select apps to hide" view
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color.fromARGB(13, 0, 0, 0),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _hiddenAppsSearchController,
                             style: TextStyle(
                               color: isDarkMode ? Colors.white : Colors.black,
                               fontSize: 16,
                             ),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                              hintText: 'Search apps to hide...',
+                              hintStyle: TextStyle(
+                                color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+                                fontSize: 16,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                                size: 22,
+                              ),
+                              suffixIcon: _hiddenAppsSearchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                                        size: 22,
+                                      ),
+                                      onPressed: () {
+                                        _hiddenAppsSearchController.clear();
+                                        setState(() {
+                                          // Force rebuild to update the filtered apps
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
+                            ),
+                            onChanged: (_) {
+                              setState(() {
+                                // Force rebuild when search text changes
+                              });
+                            },
                           ),
                         ),
                       ],
@@ -811,6 +1088,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           notificationCounts: _notificationCounts,
                           showNotificationBadges: _showNotificationBadges,
                           searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+                          isBackgroundLoading: _isBackgroundLoading,
                         )
                       : TabBarView(
                           controller: _tabController,
@@ -950,6 +1228,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               notificationCounts: _notificationCounts,
               showNotificationBadges: _showNotificationBadges,
               searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+              isBackgroundLoading: _isBackgroundLoading,
             ),
           ),
           if (!_isSearchBarAtTop) _buildSearchBar(),
@@ -1414,36 +1693,94 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<Widget> _getAppIcon(String packageName) async {
     try {
-      final app = _apps.firstWhere((app) => app.packageName == packageName);
-      if (app.icon != null) {
-        return Image.memory(app.icon!);
+      final iconData = await _getAppIconData(packageName);
+      if (iconData != null) {
+        return Image.memory(iconData);
       }
       return const SizedBox();
     } catch (e) {
+      debugPrint('Error creating app icon widget for $packageName: $e');
       return const SizedBox();
     }
   }
 
+  Future<Uint8List?> _getAppIconData(String packageName) async {
+    try {
+      // First try to get from the loaded apps list
+      try {
+        final app = _apps.firstWhere((app) => app.packageName == packageName);
+        if (app.icon != null) {
+          return app.icon;
+        }
+      } catch (e) {
+        // App not found in the list, continue to other methods
+        debugPrint('App $packageName not found in current list when loading icon data: $e');
+      }
+      
+      // If not found or icon is null, try to load icon
+      return await _loadAppIcon(packageName);
+    } catch (e) {
+      debugPrint('Error getting app icon data for $packageName: $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _loadAppIcon(String packageName) async {
+    if (_iconCache.containsKey(packageName)) {
+      return _iconCache[packageName];
+    }
+    
+    try {
+      // First try to load from database cache
+      final iconData = await AppDatabase.loadIconFromCache(packageName);
+      if (iconData != null) {
+        // Manage cache size
+        if (_iconCache.length >= _maxCacheSize) {
+          _iconCache.remove(_iconCache.keys.first);
+        }
+        _iconCache[packageName] = iconData;
+        return iconData;
+      }
+      
+      // Fallback to loading from app if not in cache
+      final app = _apps.firstWhere((app) => app.packageName == packageName);
+      if (app.icon != null) {
+        // Manage cache size
+        if (_iconCache.length >= _maxCacheSize) {
+          _iconCache.remove(_iconCache.keys.first);
+        }
+        _iconCache[packageName] = app.icon!;
+        return app.icon;
+      }
+    } catch (e) {
+      debugPrint('Error loading icon: $e');
+    }
+    return null;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Prevent multiple rapid refreshes
-      final now = DateTime.now();
-      if (_lastRefresh != null && now.difference(_lastRefresh!) < const Duration(seconds: 2)) {
-        return;
-      }
-
-      _lastRefresh = now;
-
-      // Refresh both apps and pinned apps
-      Future.delayed(const Duration(seconds: 1), () async {
-        if (mounted) {
-          await _loadApps(background: true);
-          await _loadPinnedApps();
-          setState(() {
-          });
-        }
-      });
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App is in the foreground
+        debugPrint('App resumed - refreshing app list');
+        _refreshApps();
+        break;
+      case AppLifecycleState.inactive:
+        // App is partially obscured, may be entering multitasking
+        break;
+      case AppLifecycleState.paused:
+        // App is in the background
+        _savePinnedAppsBackup();
+        break;
+      case AppLifecycleState.detached:
+        // App is detached from UI (being killed)
+        _savePinnedAppsBackup();
+        break;
+      case AppLifecycleState.hidden:
+        // App is completely hidden (newer Flutter versions)
+        break;
     }
   }
 
@@ -1773,7 +2110,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: FutureBuilder<Uint8List?>(
-                future: _loadAppIcon(app.packageName),
+                future: _getAppIconData(app.packageName),
                 builder: (context, snapshot) {
                   if (snapshot.hasData && snapshot.data != null) {
                     return Padding(
@@ -1830,27 +2167,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ),
       ],
     );
-  }
-
-  Future<Uint8List?> _loadAppIcon(String packageName) async {
-    if (_iconCache.containsKey(packageName)) {
-      return _iconCache[packageName];
-    }
-    
-    try {
-      final app = _apps.firstWhere((app) => app.packageName == packageName);
-      if (app.icon != null) {
-        // Manage cache size
-        if (_iconCache.length >= _maxCacheSize) {
-          _iconCache.remove(_iconCache.keys.first);
-        }
-        _iconCache[packageName] = app.icon!;
-        return app.icon;
-      }
-    } catch (e) {
-      debugPrint('Error loading icon: $e');
-    }
-    return null;
   }
 
   double _getBottomSheetPadding(BuildContext context) {
@@ -1999,28 +2315,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   bool get isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
-  Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
-    // Return null if no preview image is provided
-    if (widget.previewImage.isEmpty) return null;
-    
-    // Use widgetId as key for caching (assumes widgetId is non-null for added widgets)
-    if (widget.widgetId != null && _widgetPreviewCache.containsKey(widget.widgetId)) {
-      return _widgetPreviewCache[widget.widgetId];
-    }
-    
-    try {
-      // Decode the base64-encoded preview image
-      final decoded = base64Decode(widget.previewImage);
-      if (widget.widgetId != null) {
-        _widgetPreviewCache[widget.widgetId!] = decoded;
-      }
-      return decoded;
-    } catch (e) {
-      debugPrint('Error decoding widget preview image: $e');
-      return null;
-    }
-  }
-
   void _refreshAppLayout() {
     setState(() {
       // Force rebuild of the app layout
@@ -2045,5 +2339,27 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         });
       }
     });
+  }
+
+  Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
+    // Return null if no preview image is provided
+    if (widget.previewImage.isEmpty) return null;
+    
+    // Use widgetId as key for caching (assumes widgetId is non-null for added widgets)
+    if (widget.widgetId != null && _widgetPreviewCache.containsKey(widget.widgetId)) {
+      return _widgetPreviewCache[widget.widgetId];
+    }
+    
+    try {
+      // Decode the base64-encoded preview image
+      final decoded = base64Decode(widget.previewImage);
+      if (widget.widgetId != null) {
+        _widgetPreviewCache[widget.widgetId!] = decoded;
+      }
+      return decoded;
+    } catch (e) {
+      debugPrint('Error decoding widget preview image: $e');
+      return null;
+    }
   }
 }

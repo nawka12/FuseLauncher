@@ -19,6 +19,7 @@ class AppLayoutSwitcher extends StatefulWidget {
   final bool showNotificationBadges;
   final TextEditingController searchController;
   final ScrollController? scrollController;
+  final bool isBackgroundLoading;
 
   const AppLayoutSwitcher({
     Key? key,
@@ -34,6 +35,7 @@ class AppLayoutSwitcher extends StatefulWidget {
     required this.showNotificationBadges,
     required this.searchController,
     this.scrollController,
+    this.isBackgroundLoading = false,
   }) : super(key: key);
 
   @override
@@ -221,32 +223,84 @@ class _AppLayoutSwitcherState extends State<AppLayoutSwitcher> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return _currentLayout == AppLayoutType.list
-        ? AppListView(
-            apps: widget.apps,
-            pinnedApps: widget.pinnedApps,
-            showingHiddenApps: widget.showingHiddenApps,
-            onAppLongPress: widget.onAppLongPress,
-            isSelectingAppsToHide: widget.isSelectingAppsToHide,
-            hiddenApps: widget.hiddenApps,
-            onAppLaunch: widget.onAppLaunch,
-            sortType: widget.sortType,
-            notificationCounts: widget.notificationCounts,
-            showNotificationBadges: widget.showNotificationBadges,
-            searchController: widget.searchController,
-          )
-        : AppGridView(
-            apps: widget.apps,
-            pinnedApps: widget.pinnedApps,
-            showingHiddenApps: widget.showingHiddenApps,
-            onAppLongPress: widget.onAppLongPress,
-            isSelectingAppsToHide: widget.isSelectingAppsToHide,
-            hiddenApps: widget.hiddenApps,
-            onAppLaunch: widget.onAppLaunch,
-            notificationCounts: widget.notificationCounts,
-            showNotificationBadges: widget.showNotificationBadges,
-            searchController: widget.searchController,
-            sortType: widget.sortType,
-          );
+    return Stack(
+      children: [
+        _currentLayout == AppLayoutType.list
+            ? AppListView(
+                apps: widget.apps,
+                pinnedApps: widget.pinnedApps,
+                showingHiddenApps: widget.showingHiddenApps,
+                onAppLongPress: widget.onAppLongPress,
+                isSelectingAppsToHide: widget.isSelectingAppsToHide,
+                hiddenApps: widget.hiddenApps,
+                onAppLaunch: widget.onAppLaunch,
+                sortType: widget.sortType,
+                notificationCounts: widget.notificationCounts,
+                showNotificationBadges: widget.showNotificationBadges,
+                searchController: widget.searchController,
+              )
+            : AppGridView(
+                apps: widget.apps,
+                pinnedApps: widget.pinnedApps,
+                showingHiddenApps: widget.showingHiddenApps,
+                onAppLongPress: widget.onAppLongPress,
+                isSelectingAppsToHide: widget.isSelectingAppsToHide,
+                hiddenApps: widget.hiddenApps,
+                onAppLaunch: widget.onAppLaunch,
+                notificationCounts: widget.notificationCounts,
+                showNotificationBadges: widget.showNotificationBadges,
+                searchController: widget.searchController,
+                sortType: widget.sortType,
+              ),
+        if (widget.isBackgroundLoading)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.black.withOpacity(0.7) 
+                    : Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).brightness == Brightness.dark 
+                            ? Colors.white 
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Updating...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.white 
+                          : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 } 

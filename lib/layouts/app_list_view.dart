@@ -8,6 +8,7 @@ import '../sort_options.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async';
 import 'app_layout_manager.dart';
+import '../database/app_database.dart';
 
 class AppListView extends StatefulWidget {
   final List<AppInfo> apps;
@@ -162,6 +163,18 @@ class _AppListViewState extends State<AppListView> {
     }
     
     try {
+      // First try to load from database cache
+      final iconData = await AppDatabase.loadIconFromCache(packageName);
+      if (iconData != null) {
+        // Manage cache size
+        if (_iconCache.length >= _maxCacheSize) {
+          _iconCache.remove(_iconCache.keys.first);
+        }
+        _iconCache[packageName] = iconData;
+        return iconData;
+      }
+      
+      // Fallback to loading from app if not in cache
       final app = widget.apps.firstWhere((app) => app.packageName == packageName);
       if (app.icon != null) {
         // Manage cache size
