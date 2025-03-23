@@ -737,9 +737,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 _hiddenApps.remove(application.packageName);
                                 _searchController.clear();
                                 _hiddenAppsSearchController.clear();
-                                // Restore pinned status if it was previously pinned
+                                // Don't restore pinned status - require user to pin again
                                 if (_pinnedAppsBackup.contains(application.packageName)) {
-                                  _pinnedApps.add(application);
+                                  // Don't add back to _pinnedApps
                                   _pinnedAppsBackup.remove(application.packageName);
                                 }
                               });
@@ -759,6 +759,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           ),
                           onTap: () async {
                             Navigator.pop(context);
+                            // Check if app is hidden - if so, don't allow pinning
+                            if (!isPinned && _hiddenApps.contains(application.packageName)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Hidden apps cannot be pinned'),
+                                ),
+                              );
+                              return;
+                            }
                             setState(() {
                               if (isPinned) {
                                 _pinnedApps.removeWhere(
@@ -1076,7 +1085,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       ? AppLayoutSwitcher(
                           key: _appLayoutKey,
                           apps: _apps,
-                          pinnedApps: _pinnedApps,
+                          pinnedApps: _pinnedApps.where((app) => !_hiddenApps.contains(app.packageName)).toList(), // Filter out hidden apps from pinned apps
                           showingHiddenApps: _showingHiddenApps,
                           onAppLongPress: _showAppOptions,
                           isSelectingAppsToHide: _isSelectingAppsToHide,
@@ -1216,7 +1225,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: AppLayoutSwitcher(
               key: _appLayoutKey,
               apps: _apps,
-              pinnedApps: _pinnedApps,
+              pinnedApps: _pinnedApps.where((app) => !_hiddenApps.contains(app.packageName)).toList(), // Filter out hidden apps from pinned apps
               showingHiddenApps: _showingHiddenApps,
               onAppLongPress: _showAppOptions,
               isSelectingAppsToHide: _isSelectingAppsToHide,
@@ -2079,9 +2088,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               }
             } else {
               _hiddenApps.remove(app.packageName);
+              // Don't automatically restore pinned status - require user to pin again
               if (_pinnedAppsBackup.contains(app.packageName)) {
-                _pinnedApps.add(app);
                 _pinnedAppsBackup.remove(app.packageName);
+                // Don't add back to _pinnedApps
                 _savePinnedApps(); // Save pinned apps state immediately
               }
             }

@@ -26,7 +26,7 @@ class _LiveWidgetPreviewState extends State<LiveWidgetPreview> {
       onVisibilityChanged: (VisibilityInfo info) {
         // For example, instantiate live preview if at least 10% is visible.
         bool visible = info.visibleFraction > 0.1;
-        if (visible != _isVisible) {
+        if (visible != _isVisible && mounted) {
           setState(() {
             _isVisible = visible;
           });
