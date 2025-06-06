@@ -5,15 +5,15 @@ import 'package:visibility_detector/visibility_detector.dart';
 class LiveWidgetPreview extends StatefulWidget {
   final int widgetId;
   final int minHeight;
-  
+
   const LiveWidgetPreview({
-    Key? key,
+    super.key,
     required this.widgetId,
     required this.minHeight,
-  }) : super(key: key);
+  });
 
   @override
-  _LiveWidgetPreviewState createState() => _LiveWidgetPreviewState();
+  State<LiveWidgetPreview> createState() => _LiveWidgetPreviewState();
 }
 
 class _LiveWidgetPreviewState extends State<LiveWidgetPreview> {
@@ -59,4 +59,4 @@ class _LiveWidgetPreviewState extends State<LiveWidgetPreview> {
             ),
     );
   }
-} 
+}

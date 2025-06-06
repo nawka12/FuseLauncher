@@ -37,7 +37,7 @@ class AppLayoutManager {
   static Future<void> saveGridColumns(int columns) async {
     if (columns < 2) columns = 2; // Minimum 2 columns
     if (columns > 6) columns = 6; // Maximum 6 columns
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_gridColumnsKey, columns);
   }
@@ -49,8 +49,6 @@ class AppLayoutManager {
         return 'List';
       case AppLayoutType.grid:
         return 'Grid';
-      default:
-        return 'Unknown';
     }
   }
 
@@ -61,8 +59,6 @@ class AppLayoutManager {
         return Icons.view_list;
       case AppLayoutType.grid:
         return Icons.grid_view;
-      default:
-        return Icons.view_list;
     }
   }
 }
@@ -77,4 +73,4 @@ class AppScrollBehavior extends ScrollBehavior {
         PointerDeviceKind.stylus,
         PointerDeviceKind.unknown,
       };
-} 
+}

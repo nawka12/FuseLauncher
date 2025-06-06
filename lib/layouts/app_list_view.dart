@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
-import 'dart:typed_data';
 import '../app_sections.dart';
 import '../sort_options.dart';
-import 'package:flutter/gestures.dart';
 import 'dart:async';
 import 'app_layout_manager.dart';
 import '../database/app_database.dart';
@@ -24,7 +22,7 @@ class AppListView extends StatefulWidget {
   final TextEditingController searchController;
 
   const AppListView({
-    Key? key,
+    super.key,
     required this.apps,
     required this.pinnedApps,
     required this.showingHiddenApps,
@@ -36,7 +34,7 @@ class AppListView extends StatefulWidget {
     required this.notificationCounts,
     required this.showNotificationBadges,
     required this.searchController,
-  }) : super(key: key);
+  });
 
   @override
   State<AppListView> createState() => _AppListViewState();
@@ -49,20 +47,20 @@ class _AppListViewState extends State<AppListView> {
   String? _currentSection;
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
-  
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_scrollListener);
   }
-  
+
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     super.dispose();
   }
-  
+
   void _scrollListener() {
     // Update scrolling state
     if (!_isScrolling) {
@@ -70,7 +68,7 @@ class _AppListViewState extends State<AppListView> {
         _isScrolling = true;
       });
     }
-    
+
     // Reset timer on each scroll event
     _scrollEndTimer?.cancel();
     _scrollEndTimer = Timer(const Duration(seconds: 3), () {
@@ -80,44 +78,52 @@ class _AppListViewState extends State<AppListView> {
         });
       }
     });
-    
-    if (_scrollController.hasClients && widget.sortType != AppListSortType.usage) {
+
+    if (_scrollController.hasClients &&
+        widget.sortType != AppListSortType.usage) {
       // Get all section headers from the screen
-      final sections = AppSectionManager.createSections(_filteredApps, sortType: widget.sortType);
+      final sections = AppSectionManager.createSections(_filteredApps,
+          sortType: widget.sortType);
       if (sections.isEmpty) return;
-      
+
       // Approximate check for which section is most visible
       final scrollPosition = _scrollController.position.pixels;
-      final viewportHeight = _scrollController.position.viewportDimension;
-      
+
       // Calculate the total content height and the approximate position of each section
       double sectionPosition = 0;
       double itemHeight = 60.0; // Approximate height of a list item
-      double sectionHeaderHeight = 60.0; // Approximate height of a section header
-      
+      double sectionHeaderHeight =
+          60.0; // Approximate height of a section header
+
       String? visibleSection;
       double pinnedSectionHeight = 0;
-      
+
       // Account for pinned apps section if it exists
-      if (!widget.showingHiddenApps && widget.pinnedApps.isNotEmpty && widget.searchController.text.isEmpty) {
-        pinnedSectionHeight = 40.0 + (widget.pinnedApps.length * itemHeight) + 20.0; // Header + items + divider
+      if (!widget.showingHiddenApps &&
+          widget.pinnedApps.isNotEmpty &&
+          widget.searchController.text.isEmpty) {
+        pinnedSectionHeight = 40.0 +
+            (widget.pinnedApps.length * itemHeight) +
+            20.0; // Header + items + divider
         sectionPosition += pinnedSectionHeight;
       }
-      
+
       // Find which section is most visible
       for (var i = 0; i < sections.length; i++) {
         final section = sections[i];
         final sectionStart = sectionPosition;
-        final sectionHeight = sectionHeaderHeight + (section.apps.length * itemHeight);
+        final sectionHeight =
+            sectionHeaderHeight + (section.apps.length * itemHeight);
         sectionPosition += sectionHeight;
-        
+
         // Check if we're in this section's range
-        if (scrollPosition >= sectionStart && scrollPosition < sectionPosition) {
+        if (scrollPosition >= sectionStart &&
+            scrollPosition < sectionPosition) {
           visibleSection = section.letter;
           break;
         }
       }
-      
+
       // Trigger haptic feedback when section changes
       if (visibleSection != null && visibleSection != _currentSection) {
         HapticFeedback.selectionClick();
@@ -125,35 +131,40 @@ class _AppListViewState extends State<AppListView> {
       }
     }
   }
-  
+
   List<AppInfo> get _filteredApps {
     List<AppInfo> apps;
-    
+
     if (widget.isSelectingAppsToHide) {
       // When selecting apps to hide, show all apps except system apps
       apps = List<AppInfo>.from(widget.apps)
-        ..sort((a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
-      
+        ..sort(
+            (a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
+
       // Apply search filter if query exists
       final query = widget.searchController.text.toLowerCase();
       if (query.isNotEmpty) {
-        apps = apps.where((app) => 
-          (app.name.toLowerCase().contains(query))
-        ).toList();
+        apps = apps
+            .where((app) => (app.name.toLowerCase().contains(query)))
+            .toList();
       }
       return apps;
     } else {
       // Normal app list filtering
-      apps = widget.showingHiddenApps 
-          ? widget.apps.where((app) => widget.hiddenApps.contains(app.packageName)).toList()
-          : widget.apps.where((app) => !widget.hiddenApps.contains(app.packageName)).toList();
-      
+      apps = widget.showingHiddenApps
+          ? widget.apps
+              .where((app) => widget.hiddenApps.contains(app.packageName))
+              .toList()
+          : widget.apps
+              .where((app) => !widget.hiddenApps.contains(app.packageName))
+              .toList();
+
       final query = widget.searchController.text.toLowerCase();
       if (query.isEmpty) return apps;
-      
-      return apps.where((app) => 
-        (app.name.toLowerCase().contains(query))
-      ).toList();
+
+      return apps
+          .where((app) => (app.name.toLowerCase().contains(query)))
+          .toList();
     }
   }
 
@@ -161,7 +172,7 @@ class _AppListViewState extends State<AppListView> {
     if (_iconCache.containsKey(packageName)) {
       return _iconCache[packageName];
     }
-    
+
     try {
       // First try to load from database cache
       final iconData = await AppDatabase.loadIconFromCache(packageName);
@@ -173,9 +184,10 @@ class _AppListViewState extends State<AppListView> {
         _iconCache[packageName] = iconData;
         return iconData;
       }
-      
+
       // Fallback to loading from app if not in cache
-      final app = widget.apps.firstWhere((app) => app.packageName == packageName);
+      final app =
+          widget.apps.firstWhere((app) => app.packageName == packageName);
       if (app.icon != null) {
         // Manage cache size
         if (_iconCache.length >= _maxCacheSize) {
@@ -197,9 +209,9 @@ class _AppListViewState extends State<AppListView> {
       return Theme(
         data: Theme.of(context).copyWith(
           scrollbarTheme: ScrollbarThemeData(
-            thumbColor: MaterialStateProperty.all(Colors.white.withAlpha(77)),
+            thumbColor: WidgetStateProperty.all(Colors.white.withAlpha(77)),
             radius: const Radius.circular(10.0),
-            thickness: MaterialStateProperty.all(6.0),
+            thickness: WidgetStateProperty.all(6.0),
             interactive: true,
           ),
         ),
@@ -209,7 +221,8 @@ class _AppListViewState extends State<AppListView> {
           controller: _scrollController,
           child: ScrollConfiguration(
             behavior: AppScrollBehavior().copyWith(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics()),
             ),
             child: ListView.builder(
               itemCount: _filteredApps.length,
@@ -227,9 +240,9 @@ class _AppListViewState extends State<AppListView> {
     return Theme(
       data: Theme.of(context).copyWith(
         scrollbarTheme: ScrollbarThemeData(
-          thumbColor: MaterialStateProperty.all(Colors.white.withAlpha(77)),
+          thumbColor: WidgetStateProperty.all(Colors.white.withAlpha(77)),
           radius: const Radius.circular(10.0),
-          thickness: MaterialStateProperty.all(6.0),
+          thickness: WidgetStateProperty.all(6.0),
           interactive: true,
         ),
       ),
@@ -239,13 +252,16 @@ class _AppListViewState extends State<AppListView> {
         controller: _scrollController,
         child: ScrollConfiguration(
           behavior: AppScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
           ),
           child: CustomScrollView(
             controller: _scrollController,
             slivers: [
               // Pinned apps section
-              if (!widget.showingHiddenApps && widget.pinnedApps.isNotEmpty && widget.searchController.text.isEmpty) ...[
+              if (!widget.showingHiddenApps &&
+                  widget.pinnedApps.isNotEmpty &&
+                  widget.searchController.text.isEmpty) ...[
                 SliverToBoxAdapter(
                   child: _buildPinnedAppsHeader(),
                 ),
@@ -265,36 +281,36 @@ class _AppListViewState extends State<AppListView> {
                   ),
                 ),
               ],
-              
+
               // Regular apps with sections
-              ...AppSectionManager.createSections(
-                _filteredApps,
-                sortType: widget.sortType
-              ).expand((section) => [
-                if (widget.sortType != AppListSortType.usage) 
-                  SliverToBoxAdapter(
-                    child: _buildSectionHeader(section.letter),
-                  ),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildAppTile(section.apps[index], false),
-                    ),
-                    childCount: section.apps.length,
-                  ),
-                ),
-              ]),
+              ...AppSectionManager.createSections(_filteredApps,
+                      sortType: widget.sortType)
+                  .expand((section) => [
+                        if (widget.sortType != AppListSortType.usage)
+                          SliverToBoxAdapter(
+                            child: _buildSectionHeader(section.letter),
+                          ),
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: _buildAppTile(section.apps[index], false),
+                            ),
+                            childCount: section.apps.length,
+                          ),
+                        ),
+                      ]),
             ],
           ),
         ),
       ),
     );
   }
-  
+
   Widget _buildPinnedAppsHeader() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 12),
       child: Row(
@@ -302,15 +318,18 @@ class _AppListViewState extends State<AppListView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
+              color:
+                  isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               'Pinned Apps',
               style: TextStyle(
-                color: isDarkMode 
-                    ? const Color.fromARGB(230, 255, 255, 255) // 0.9 opacity (230/255)
-                    : const Color.fromARGB(204, 0, 0, 0), // 0.8 opacity (204/255)
+                color: isDarkMode
+                    ? const Color.fromARGB(
+                        230, 255, 255, 255) // 0.9 opacity (230/255)
+                    : const Color.fromARGB(
+                        204, 0, 0, 0), // 0.8 opacity (204/255)
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
@@ -332,16 +351,20 @@ class _AppListViewState extends State<AppListView> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? const Color.fromARGB(51, 103, 80, 164) // 0.2 opacity (51/255)
-                  : const Color.fromARGB(26, 103, 80, 164), // 0.1 opacity (26/255)
+              color: isDarkMode
+                  ? const Color.fromARGB(
+                      51, 103, 80, 164) // 0.2 opacity (51/255)
+                  : const Color.fromARGB(
+                      26, 103, 80, 164), // 0.1 opacity (26/255)
               borderRadius: BorderRadius.circular(18),
             ),
             child: Center(
               child: Text(
                 letter,
                 style: TextStyle(
-                  color: isDarkMode ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
+                  color: isDarkMode
+                      ? const Color(0xFFD0BCFF)
+                      : const Color(0xFF6750A4),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -352,8 +375,9 @@ class _AppListViewState extends State<AppListView> {
           Expanded(
             child: Container(
               height: 1,
-              color: isDarkMode 
-                  ? const Color.fromARGB(26, 255, 255, 255) // 0.1 opacity (26/255)
+              color: isDarkMode
+                  ? const Color.fromARGB(
+                      26, 255, 255, 255) // 0.1 opacity (26/255)
                   : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
             ),
           ),
@@ -364,7 +388,7 @@ class _AppListViewState extends State<AppListView> {
 
   Widget _buildAppTile(AppInfo app, bool isPinned) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (widget.isSelectingAppsToHide) {
       final isHidden = widget.hiddenApps.contains(app.packageName);
       return ListTile(
@@ -376,7 +400,8 @@ class _AppListViewState extends State<AppListView> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
+                color:
+                    const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -398,7 +423,9 @@ class _AppListViewState extends State<AppListView> {
         ),
         trailing: Icon(
           isHidden ? Icons.check_box : Icons.check_box_outline_blank,
-          color: isHidden ? Colors.red : (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+          color: isHidden
+              ? Colors.red
+              : (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
         ),
         onTap: () async {
           setState(() {
@@ -423,7 +450,8 @@ class _AppListViewState extends State<AppListView> {
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
+                  color:
+                      const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -465,12 +493,12 @@ class _AppListViewState extends State<AppListView> {
           ),
           subtitle: null,
           onTap: () async {
-              HapticFeedback.selectionClick();
-              await InstalledApps.startApp(app.packageName);
-              widget.onAppLaunch(app.packageName);
-            },
+            HapticFeedback.selectionClick();
+            await InstalledApps.startApp(app.packageName);
+            widget.onAppLaunch(app.packageName);
+          },
           onLongPress: () {
-              widget.onAppLongPress(context, app, isPinned);
+            widget.onAppLongPress(context, app, isPinned);
           },
           trailing: isPinned
               ? Icon(
@@ -479,8 +507,8 @@ class _AppListViewState extends State<AppListView> {
                 )
               : null,
         ),
-        if (widget.showNotificationBadges && 
-            widget.notificationCounts.containsKey(app.packageName) && 
+        if (widget.showNotificationBadges &&
+            widget.notificationCounts.containsKey(app.packageName) &&
             widget.notificationCounts[app.packageName]! > 0)
           Positioned(
             top: 0,
@@ -504,4 +532,4 @@ class _AppListViewState extends State<AppListView> {
       ],
     );
   }
-} 
+}

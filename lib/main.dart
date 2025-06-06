@@ -15,25 +15,17 @@ import 'settings_page.dart';
 import 'auth_service.dart';
 import 'navigation_state.dart';
 import 'hidden_apps_manager.dart';
-import 'dart:convert' show base64Decode;
 import 'live_widget_preview.dart';
 import 'database/app_database.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'layouts/app_layout_switcher.dart';
-import 'package:flutter/gestures.dart';
 import 'layouts/app_layout_manager.dart';
 import 'dart:async';
 import 'app_package_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Print out all BuiltWith enum values to debug
-  print('BuiltWith enum values:');
-  for (var value in BuiltWith.values) {
-    print(' - $value');
-  }
-  
+
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   if (Platform.isAndroid) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -176,19 +168,20 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   late final ScrollController _scrollController = ScrollController()
     ..addListener(_smoothScrollListener);
   final ScrollController _widgetsScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _hiddenAppsSearchController = TextEditingController();
+  final TextEditingController _hiddenAppsSearchController =
+      TextEditingController();
   final List<String> _tabs = ['Apps', 'Widgets'];
   int _selectedIndex = 0;
   List<AppInfo> _apps = [];
   List<WidgetInfo> _addedWidgets = [];
   bool _isLoading = true;
-  DateTime? _lastRefresh;
   bool _isBackgroundLoading = false;
   List<AppInfo> _pinnedApps = [];
   bool _isReorderingWidgets = false;
@@ -209,7 +202,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   DateTime? _lastSwipeTime;
   final Set<String> _pinnedAppsBackup = {};
   bool _isSelectingAppsToHide = false;
-  final Map<int, Uint8List> _widgetPreviewCache = {};
   Key _appLayoutKey = UniqueKey();
   bool _isWidgetsScrolling = false;
   Timer? _widgetsScrollEndTimer;
@@ -225,15 +217,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         _unfocusSearch();
       });
     });
-    
+
     _isLoading = false;
     if (_apps.isEmpty) {
       _loadApps();
     }
-    
+
     // Clean up database on startup
     _performDatabaseCleanup();
-    
+
     _loadAddedWidgets();
     _loadSortTypes();
     NotificationService.initialize();
@@ -247,7 +239,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _loadSettings();
     _loadHiddenApps();
     _loadPinnedAppsBackup();
-    
+
     const systemChannel = MethodChannel('com.kayfahaarukku.flauncher/system');
     systemChannel.setMethodCallHandler((call) async {
       if (call.method == 'getNavigationState') {
@@ -288,7 +280,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     try {
       // Get all installed package names directly from device
       final validPackages = await AppPackageManager.getInstalledPackageNames();
-      
+
       // Clean up the database, removing any apps that aren't installed
       await AppDatabase.cleanupInvalidApps(validPackages);
       debugPrint('Database cleanup complete');
@@ -300,7 +292,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _showNotificationBadges = prefs.getBool('show_notification_badges') ?? true;
+      _showNotificationBadges =
+          prefs.getBool('show_notification_badges') ?? true;
     });
   }
 
@@ -334,15 +327,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _loadApps({bool background = false, bool forceRefresh = false}) async {
+  Future<void> _loadApps(
+      {bool background = false, bool forceRefresh = false}) async {
     if ((_isLoading && !background) || (_isBackgroundLoading && background)) {
       debugPrint('Loading already in progress, skipping');
       return;
     }
-    
+
     // Create a timeout timer to prevent stuck loading state
     Timer? timeoutTimer;
-    
+
     try {
       if (background) {
         setState(() {
@@ -353,11 +347,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           _isLoading = true;
         });
       }
-      
+
       // Set a timeout that will reset the loading state if it takes too long
       timeoutTimer = Timer(const Duration(seconds: 15), () {
         if (!mounted) return;
-        
+
         debugPrint('App loading timeout - resetting loading state');
         setState(() {
           if (background) {
@@ -367,18 +361,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           }
         });
       });
-      
+
       // First try to load from cache - but only if not forcing refresh
       if (!background && !forceRefresh) {
         await _loadCachedApps();
       }
-      
+
       // Then check if we need to refresh from the system
       final lastUpdate = await AppDatabase.getLastUpdateTime();
       final now = DateTime.now();
-      final shouldRefresh = forceRefresh || lastUpdate == null || 
+      final shouldRefresh = forceRefresh ||
+          lastUpdate == null ||
           now.difference(lastUpdate) > const Duration(minutes: 10);
-      
+
       if (shouldRefresh || background) {
         // If we need to update, do it in the background
         await _refreshApps();
@@ -404,7 +399,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       timeoutTimer?.cancel();
     }
   }
-  
+
   Future<void> _loadCachedApps() async {
     final cachedApps = await AppDatabase.getCachedApps();
     if (cachedApps.isNotEmpty && mounted) {
@@ -416,28 +411,29 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       await _loadPinnedApps();
       if (mounted) {
         setState(() {
-          _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+          _appSections = AppSectionManager.createSections(_apps,
+              sortType: _appListSortType);
         });
       }
     }
   }
-  
+
   Future<void> _refreshApps() async {
     if (_isBackgroundLoading) {
       debugPrint('Refresh already in progress, skipping');
       return;
     }
-    
+
     // Create a timer to ensure loading state doesn't get stuck
     Timer? timeoutTimer;
-    
+
     try {
       if (mounted) {
         setState(() {
           _isBackgroundLoading = true;
         });
       }
-      
+
       // Set a timeout to reset loading state if it takes too long
       timeoutTimer = Timer(const Duration(seconds: 10), () {
         if (mounted && _isBackgroundLoading) {
@@ -447,7 +443,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           });
         }
       });
-      
+
       await _refreshAppsInBackground();
     } catch (e) {
       debugPrint('Error in refresh apps: $e');
@@ -473,7 +469,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         debugPrint('Error fetching all apps: $e');
         freshApps = await _getSafeInstalledApps();
       }
-      
+
       if (freshApps.isEmpty) {
         // If we still couldn't get apps, don't proceed with updates
         debugPrint('Could not get app list - skipping update');
@@ -484,58 +480,63 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         }
         return;
       }
-      
+
       // Clean up any invalid apps from the database
-      final validPackageNames = freshApps.map((app) => app.packageName).toList();
+      final validPackageNames =
+          freshApps.map((app) => app.packageName).toList();
       await AppDatabase.cleanupInvalidApps(validPackageNames);
-      
+
       // Track changes between old and new app lists
-      final Set<String> oldPackageNames = _apps.map((app) => app.packageName).toSet();
-      final Set<String> newPackageNames = freshApps.map((app) => app.packageName).toSet();
-      
+      final Set<String> oldPackageNames =
+          _apps.map((app) => app.packageName).toSet();
+      final Set<String> newPackageNames =
+          freshApps.map((app) => app.packageName).toSet();
+
       // Find apps that were removed and added
-      final Set<String> removedApps = oldPackageNames.difference(newPackageNames);
+      final Set<String> removedApps =
+          oldPackageNames.difference(newPackageNames);
       final Set<String> addedApps = newPackageNames.difference(oldPackageNames);
-      
+
       // Log changes for debugging
       if (removedApps.isNotEmpty) {
         debugPrint('Detected removed apps: ${removedApps.join(', ')}');
       }
-      
+
       if (addedApps.isNotEmpty) {
         debugPrint('Detected new apps: ${addedApps.join(', ')}');
       }
-      
+
       // Handle changes to pinned apps if necessary
       if (removedApps.isNotEmpty) {
         for (final packageName in removedApps) {
           // Remove from database
           await AppDatabase.removeApp(packageName);
-          
+
           // Remove from pinned apps list
           _pinnedApps.removeWhere((app) => app.packageName == packageName);
         }
         await _savePinnedApps();
       }
-      
+
       // Cache the fresh data in the database
       await AppDatabase.cacheApps(freshApps);
-      
+
       if (mounted) {
         // Update the app list with the fresh data
         setState(() {
           _apps = freshApps;
         });
-        
+
         // Sort the app list
         await AppUsageTracker.sortAppList(_apps, _appListSortType);
-        
+
         // Refresh pinned apps to ensure consistency
         await _loadPinnedApps();
-        
+
         if (mounted) {
           setState(() {
-            _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+            _appSections = AppSectionManager.createSections(_apps,
+                sortType: _appListSortType);
             _isBackgroundLoading = false;
           });
         }
@@ -553,56 +554,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   // Safely get installed apps with error handling for individual apps
   Future<List<AppInfo>> _getSafeInstalledApps() async {
     return AppPackageManager.getInstalledAppsSafely(
-      excludeSystemApps: false,
-      withIcon: true,
-      includeAppSize: false
-    );
-  }
-
-  List<AppInfo> get _filteredApps {
-    List<AppInfo> apps;
-    
-    if (_isSelectingAppsToHide) {
-      // When selecting apps to hide, show all apps except system apps
-      apps = List<AppInfo>.from(_apps)
-        ..sort((a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
-      
-      // Apply search filter if query exists
-      final query = _hiddenAppsSearchController.text.toLowerCase();
-      if (query.isNotEmpty) {
-        apps = apps.where((app) => 
-          (app.name.toLowerCase().contains(query))
-        ).toList();
-      }
-      return apps;
-    } else {
-      // Normal app list filtering
-      if (_showingHiddenApps) {
-        apps = _apps.where((app) => _hiddenApps.contains(app.packageName)).toList();
-        // Apply search for hidden apps
-        final query = _hiddenAppsSearchController.text.toLowerCase();
-        if (query.isNotEmpty) {
-          apps = apps.where((app) => 
-            (app.name.toLowerCase().contains(query))
-          ).toList();
-        }
-      } else {
-        apps = _apps.where((app) => !_hiddenApps.contains(app.packageName)).toList();
-        // Apply search for normal apps
-        final query = _searchController.text.toLowerCase();
-        if (query.isNotEmpty) {
-          apps = apps.where((app) => 
-            (app.name.toLowerCase().contains(query))
-          ).toList();
-        }
-      }
-      
-      return apps;
-    }
+        excludeSystemApps: false, withIcon: true, includeAppSize: false);
   }
 
   Future<bool> _onWillPop() async {
-    if (_searchController.text.isNotEmpty || _hiddenAppsSearchController.text.isNotEmpty) {
+    if (_searchController.text.isNotEmpty ||
+        _hiddenAppsSearchController.text.isNotEmpty) {
       setState(() {
         _searchController.clear();
         _hiddenAppsSearchController.clear();
@@ -628,15 +585,18 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return false; // Never allow exiting the app with back button
   }
 
-  void _showAppOptions(BuildContext context, AppInfo application, bool isPinned) async {
-    bool? isSystemAppResult = await InstalledApps.isSystemApp(application.packageName);
+  void _showAppOptions(
+      BuildContext context, AppInfo application, bool isPinned) async {
+    bool? isSystemAppResult =
+        await InstalledApps.isSystemApp(application.packageName);
     bool isSystemApp = isSystemAppResult ?? true;
     bool isHidden = _hiddenApps.contains(application.packageName);
 
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
-        backgroundColor: isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
+        backgroundColor:
+            isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -653,7 +613,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                  color: isDarkMode
+                      ? const Color(0xFF757575)
+                      : const Color(0xFFBDBDBD),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -667,14 +629,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 20),
                           child: Row(
                             children: [
                               Container(
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: isDarkMode ? const Color(0xFF424242) : const Color(0xFFE0E0E0),
+                                  color: isDarkMode
+                                      ? const Color(0xFF424242)
+                                      : const Color(0xFFE0E0E0),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: ClipRRect(
@@ -685,16 +650,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                           width: 40,
                                           height: 40,
                                           fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) {
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
                                             return Icon(
                                               Icons.android,
-                                              color: isDarkMode ? Colors.white : Colors.black54,
+                                              color: isDarkMode
+                                                  ? Colors.white
+                                                  : Colors.black54,
                                             );
                                           },
                                         )
                                       : Icon(
                                           Icons.android,
-                                          color: isDarkMode ? Colors.white : Colors.black54,
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : Colors.black54,
                                         ),
                                 ),
                               ),
@@ -706,7 +676,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                     Text(
                                       application.name,
                                       style: TextStyle(
-                                        color: isDarkMode ? Colors.white : Colors.black,
+                                        color: isDarkMode
+                                            ? Colors.white
+                                            : Colors.black,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -714,7 +686,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                     Text(
                                       application.packageName,
                                       style: TextStyle(
-                                        color: isDarkMode ? Colors.white70 : Colors.black54,
+                                        color: isDarkMode
+                                            ? Colors.white70
+                                            : Colors.black54,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -726,10 +700,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         ),
                         if (isHidden)
                           ListTile(
-                            leading: Icon(Icons.visibility, color: isDarkMode ? Colors.white : Colors.black),
+                            leading: Icon(Icons.visibility,
+                                color:
+                                    isDarkMode ? Colors.white : Colors.black),
                             title: Text(
                               'Unhide App',
-                              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                              style: TextStyle(
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black),
                             ),
                             onTap: () async {
                               Navigator.pop(context);
@@ -738,9 +716,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 _searchController.clear();
                                 _hiddenAppsSearchController.clear();
                                 // Don't restore pinned status - require user to pin again
-                                if (_pinnedAppsBackup.contains(application.packageName)) {
+                                if (_pinnedAppsBackup
+                                    .contains(application.packageName)) {
                                   // Don't add back to _pinnedApps
-                                  _pinnedAppsBackup.remove(application.packageName);
+                                  _pinnedAppsBackup
+                                      .remove(application.packageName);
                                 }
                               });
                               await _saveHiddenApps();
@@ -755,12 +735,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           ),
                           title: Text(
                             isPinned ? 'Unpin' : 'Pin to Top',
-                            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                            style: TextStyle(
+                                color:
+                                    isDarkMode ? Colors.white : Colors.black),
                           ),
                           onTap: () async {
                             Navigator.pop(context);
                             // Check if app is hidden - if so, don't allow pinning
-                            if (!isPinned && _hiddenApps.contains(application.packageName)) {
+                            if (!isPinned &&
+                                _hiddenApps.contains(application.packageName)) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Hidden apps cannot be pinned'),
@@ -770,24 +753,28 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             }
                             setState(() {
                               if (isPinned) {
-                                _pinnedApps.removeWhere(
-                                  (pinnedApp) => pinnedApp.packageName == application.packageName
-                                );
+                                _pinnedApps.removeWhere((pinnedApp) =>
+                                    pinnedApp.packageName ==
+                                    application.packageName);
                               } else {
-                                if (!_pinnedApps.any((app) => app.packageName == application.packageName)) {
+                                if (!_pinnedApps.any((app) =>
+                                    app.packageName ==
+                                    application.packageName)) {
                                   if (_pinnedApps.length < 10) {
                                     _pinnedApps.add(application);
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Maximum 10 apps can be pinned'),
+                                        content: Text(
+                                            'Maximum 10 apps can be pinned'),
                                       ),
                                     );
                                   }
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('${application.name} is already pinned'),
+                                      content: Text(
+                                          '${application.name} is already pinned'),
                                     ),
                                   );
                                 }
@@ -798,33 +785,44 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         ),
                         if (!isSystemApp)
                           ListTile(
-                            leading: const Icon(Icons.delete, color: Colors.red),
+                            leading:
+                                const Icon(Icons.delete, color: Colors.red),
                             title: Text(
                               'Uninstall',
-                              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                              style: TextStyle(
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black),
                             ),
                             onTap: () async {
                               Navigator.pop(context);
-                              
+
                               try {
                                 // Start the uninstallation process
-                                final uninstalled = await InstalledApps.uninstallApp(application.packageName);
-                                
+                                await InstalledApps.uninstallApp(
+                                    application.packageName);
+
                                 // Immediately remove from our database
-                                await AppDatabase.removeApp(application.packageName);
-                                
+                                await AppDatabase.removeApp(
+                                    application.packageName);
+
                                 // Remove the app from the current list directly
                                 if (mounted) {
                                   setState(() {
-                                    _apps.removeWhere((app) => app.packageName == application.packageName);
-                                    _pinnedApps.removeWhere((app) => app.packageName == application.packageName);
-                                    _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                                    _apps.removeWhere((app) =>
+                                        app.packageName ==
+                                        application.packageName);
+                                    _pinnedApps.removeWhere((app) =>
+                                        app.packageName ==
+                                        application.packageName);
+                                    _appSections =
+                                        AppSectionManager.createSections(_apps,
+                                            sortType: _appListSortType);
                                     // Reset loading indicators to prevent stuck state
                                     _isBackgroundLoading = false;
                                     _isLoading = false;
                                   });
                                 }
-                                
+
                                 // Force refresh app list with a timeout to prevent stuck loading state
                                 if (mounted) {
                                   // Set a timeout to ensure loading indicator is reset
@@ -835,8 +833,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                       });
                                     }
                                   });
-                                  
-                                  _loadApps(background: true, forceRefresh: true);
+
+                                  _loadApps(
+                                      background: true, forceRefresh: true);
                                 }
                               } catch (e) {
                                 // If any error occurs, ensure loading states are reset
@@ -851,15 +850,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             },
                           ),
                         ListTile(
-                          leading: Icon(Icons.info_outline, color: isDarkMode ? Colors.white : Colors.black),
+                          leading: Icon(Icons.info_outline,
+                              color: isDarkMode ? Colors.white : Colors.black),
                           title: Text(
                             'App Info',
-                            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                            style: TextStyle(
+                                color:
+                                    isDarkMode ? Colors.white : Colors.black),
                           ),
                           onTap: () async {
                             Navigator.pop(context);
-                            await InstalledApps.openSettings(application.packageName);
-                            
+                            await InstalledApps.openSettings(
+                                application.packageName);
+
                             // When returning from app settings, force refresh the app list
                             // as the user might have uninstalled or updated the app
                             if (mounted) {
@@ -885,29 +888,28 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         _addedWidgets = []; // Clear the list while loading
       });
     }
-    
+
     final widgets = await WidgetManager.getAddedWidgets();
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Load saved widget order
     final savedOrder = prefs.getStringList('widget_order') ?? [];
     final orderedWidgets = <WidgetInfo>[];
     final unorderedWidgets = List<WidgetInfo>.from(widgets);
-    
+
     // First add widgets in the saved order
     for (var widgetId in savedOrder) {
-      final index = unorderedWidgets.indexWhere(
-        (w) => w.widgetId?.toString() == widgetId
-      );
+      final index = unorderedWidgets
+          .indexWhere((w) => w.widgetId?.toString() == widgetId);
       if (index != -1) {
         orderedWidgets.add(unorderedWidgets[index]);
         unorderedWidgets.removeAt(index);
       }
     }
-    
+
     // Add any remaining widgets at the end
     orderedWidgets.addAll(unorderedWidgets);
-    
+
     // Load saved sizes
     final savedSizesString = prefs.getString('widget_sizes');
     if (savedSizesString != null) {
@@ -923,7 +925,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         }
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _addedWidgets = orderedWidgets;
@@ -934,17 +936,20 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return PopScope(
-      onPopInvoked: (didPop) async {
-        if (!didPop) {
-          await _onWillPop();
-        }
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        // Since canPop is false, didPop will be false when this is invoked
+        // due to a pop attempt that PopScope is intercepting.
+        // So, we effectively always call _onWillPop.
+        await _onWillPop();
       },
       child: GestureDetector(
         onTap: _unfocusSearch,
         child: Scaffold(
-          backgroundColor: (isDarkMode ? Colors.black : Colors.white).withAlpha(128),
+          backgroundColor:
+              (isDarkMode ? Colors.black : Colors.white).withAlpha(128),
           body: SafeArea(
             child: Column(
               children: [
@@ -960,7 +965,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               child: Text(
                                 'Select apps to hide',
                                 style: TextStyle(
-                                  color: isDarkMode ? Colors.white : Colors.black,
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -968,13 +974,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                             ),
                             TextButton(
                               onPressed: () async {
-                                final authenticated = await AuthService.authenticateUser();
+                                final authenticated =
+                                    await AuthService.authenticateUser();
                                 if (authenticated) {
                                   // Save all states first
                                   await _saveHiddenApps();
                                   await _savePinnedApps();
                                   await _savePinnedAppsBackup();
-                                  
+
                                   // Clear search bar and update UI state in a single setState
                                   setState(() {
                                     _searchController.clear();
@@ -987,7 +994,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               child: Text(
                                 'Done',
                                 style: TextStyle(
-                                  color: isDarkMode ? Colors.white : Colors.black,
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black,
                                   fontSize: 16,
                                 ),
                               ),
@@ -1014,38 +1022,49 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               fontSize: 16,
                             ),
                             decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 16),
                               hintText: 'Search apps to hide...',
                               hintStyle: TextStyle(
-                                color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+                                color:
+                                    (isDarkMode ? Colors.white : Colors.black)
+                                        .withAlpha(128),
                                 fontSize: 16,
                               ),
                               prefixIcon: Icon(
                                 Icons.search,
-                                color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                                color:
+                                    (isDarkMode ? Colors.white : Colors.black)
+                                        .withAlpha(179),
                                 size: 22,
                               ),
-                              suffixIcon: _hiddenAppsSearchController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: Icon(
-                                        Icons.clear,
-                                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                                        size: 22,
-                                      ),
-                                      onPressed: () {
-                                        _hiddenAppsSearchController.clear();
-                                        setState(() {
-                                          // Force rebuild to update the filtered apps
-                                        });
-                                      },
-                                    )
-                                  : null,
+                              suffixIcon:
+                                  _hiddenAppsSearchController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: Icon(
+                                            Icons.clear,
+                                            color: (isDarkMode
+                                                    ? Colors.white
+                                                    : Colors.black)
+                                                .withAlpha(179),
+                                            size: 22,
+                                          ),
+                                          onPressed: () {
+                                            _hiddenAppsSearchController.clear();
+                                            setState(() {
+                                              // Force rebuild to update the filtered apps
+                                            });
+                                          },
+                                        )
+                                      : null,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
                               ),
                               filled: true,
-                              fillColor: isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
+                              fillColor: isDarkMode
+                                  ? const Color(0xFF2D2D2D)
+                                  : Colors.white,
                             ),
                             onChanged: (_) {
                               setState(() {
@@ -1062,7 +1081,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
+                        color: (isDarkMode ? Colors.white : Colors.black)
+                            .withAlpha(26),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: TabBar(
@@ -1072,9 +1092,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         indicatorColor: Colors.transparent,
                         dividerColor: Colors.transparent,
                         labelColor: isDarkMode ? Colors.white : Colors.black,
-                        unselectedLabelColor: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
+                        unselectedLabelColor:
+                            (isDarkMode ? Colors.white : Colors.black)
+                                .withAlpha(128),
                         indicator: BoxDecoration(
-                          color: (isDarkMode ? Colors.white : Colors.black).withAlpha(51),
+                          color: (isDarkMode ? Colors.white : Colors.black)
+                              .withAlpha(51),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -1085,7 +1108,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       ? AppLayoutSwitcher(
                           key: _appLayoutKey,
                           apps: _apps,
-                          pinnedApps: _pinnedApps.where((app) => !_hiddenApps.contains(app.packageName)).toList(), // Filter out hidden apps from pinned apps
+                          pinnedApps: _pinnedApps
+                              .where((app) =>
+                                  !_hiddenApps.contains(app.packageName))
+                              .toList(), // Filter out hidden apps from pinned apps
                           showingHiddenApps: _showingHiddenApps,
                           onAppLongPress: _showAppOptions,
                           isSelectingAppsToHide: _isSelectingAppsToHide,
@@ -1096,7 +1122,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           sortType: _appListSortType,
                           notificationCounts: _notificationCounts,
                           showNotificationBadges: _showNotificationBadges,
-                          searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+                          searchController:
+                              _showingHiddenApps || _isSelectingAppsToHide
+                                  ? _hiddenAppsSearchController
+                                  : _searchController,
                           isBackgroundLoading: _isBackgroundLoading,
                         )
                       : TabBarView(
@@ -1117,57 +1146,66 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Widget _buildAppsList() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    return GestureDetector(
-      onHorizontalDragStart: (_selectedIndex == 0) ? (details) {
-        _horizontalDragStart = details.localPosition.dx;
-        _isSwipeInProgress = false;
-      } : null,
-      onHorizontalDragUpdate: (_selectedIndex == 0) ? (details) async {
-        if (_isSwipeInProgress) return;
 
-        final dragDistance = details.localPosition.dx - _horizontalDragStart;
-        final screenWidth = MediaQuery.of(context).size.width;
-        final now = DateTime.now();
-        
-        // Handle left-to-right swipe for hidden apps (when not already showing hidden apps)
-        if (!_showingHiddenApps && dragDistance > screenWidth * 0.2) {
-          _isSwipeInProgress = true;
-          
-          if (_lastSwipeTime != null && 
-              now.difference(_lastSwipeTime!) < const Duration(milliseconds: 500)) {
-            // Second swipe within 500ms
-            if (_hasCompletedFirstSwipe) {
-              final authenticated = await AuthService.authenticateUser();
-              if (authenticated) {
-                setState(() {
-                  _showingHiddenApps = true;
-                  _hasCompletedFirstSwipe = false;
-                  _searchController.clear();
-                  _hiddenAppsSearchController.clear();
-                });
+    return GestureDetector(
+      onHorizontalDragStart: (_selectedIndex == 0)
+          ? (details) {
+              _horizontalDragStart = details.localPosition.dx;
+              _isSwipeInProgress = false;
+            }
+          : null,
+      onHorizontalDragUpdate: (_selectedIndex == 0)
+          ? (details) async {
+              if (_isSwipeInProgress) return;
+
+              final dragDistance =
+                  details.localPosition.dx - _horizontalDragStart;
+              final screenWidth = MediaQuery.of(context).size.width;
+              final now = DateTime.now();
+
+              // Handle left-to-right swipe for hidden apps (when not already showing hidden apps)
+              if (!_showingHiddenApps && dragDistance > screenWidth * 0.2) {
+                _isSwipeInProgress = true;
+
+                if (_lastSwipeTime != null &&
+                    now.difference(_lastSwipeTime!) <
+                        const Duration(milliseconds: 500)) {
+                  // Second swipe within 500ms
+                  if (_hasCompletedFirstSwipe) {
+                    final authenticated = await AuthService.authenticateUser();
+                    if (authenticated) {
+                      setState(() {
+                        _showingHiddenApps = true;
+                        _hasCompletedFirstSwipe = false;
+                        _searchController.clear();
+                        _hiddenAppsSearchController.clear();
+                      });
+                    }
+                  }
+                } else {
+                  // First swipe or swipe after timeout
+                  _hasCompletedFirstSwipe = true;
+                }
+                _lastSwipeTime = now;
+              }
+              // Handle right-to-left swipe for tab switching (works on both normal and hidden app lists)
+              else if (dragDistance < -screenWidth * 0.2) {
+                _isSwipeInProgress = true;
+                _tabController.animateTo(1); // Switch to Widgets tab
               }
             }
-          } else {
-            // First swipe or swipe after timeout
-            _hasCompletedFirstSwipe = true;
-          }
-          _lastSwipeTime = now;
-        }
-        // Handle right-to-left swipe for tab switching (works on both normal and hidden app lists)
-        else if (dragDistance < -screenWidth * 0.2) {
-          _isSwipeInProgress = true;
-          _tabController.animateTo(1); // Switch to Widgets tab
-        }
-      } : null,
-      onHorizontalDragEnd: (_selectedIndex == 0) ? (details) {
-        _isSwipeInProgress = false;
-        // Reset first swipe if too much time has passed
-        if (_lastSwipeTime != null && 
-            DateTime.now().difference(_lastSwipeTime!) > const Duration(milliseconds: 500)) {
-          _hasCompletedFirstSwipe = false;
-        }
-      } : null,
+          : null,
+      onHorizontalDragEnd: (_selectedIndex == 0)
+          ? (details) {
+              _isSwipeInProgress = false;
+              // Reset first swipe if too much time has passed
+              if (_lastSwipeTime != null &&
+                  DateTime.now().difference(_lastSwipeTime!) >
+                      const Duration(milliseconds: 500)) {
+                _hasCompletedFirstSwipe = false;
+              }
+            }
+          : null,
       child: Column(
         children: [
           if (_isSearchBarAtTop) _buildSearchBar(),
@@ -1196,7 +1234,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       color: isDarkMode ? Colors.white : Colors.black,
                     ),
                     onPressed: () async {
-                      final authenticated = await AuthService.authenticateUser();
+                      final authenticated =
+                          await AuthService.authenticateUser();
                       if (authenticated) {
                         setState(() {
                           _isSelectingAppsToHide = true;
@@ -1225,7 +1264,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: AppLayoutSwitcher(
               key: _appLayoutKey,
               apps: _apps,
-              pinnedApps: _pinnedApps.where((app) => !_hiddenApps.contains(app.packageName)).toList(), // Filter out hidden apps from pinned apps
+              pinnedApps: _pinnedApps
+                  .where((app) => !_hiddenApps.contains(app.packageName))
+                  .toList(), // Filter out hidden apps from pinned apps
               showingHiddenApps: _showingHiddenApps,
               onAppLongPress: _showAppOptions,
               isSelectingAppsToHide: _isSelectingAppsToHide,
@@ -1236,7 +1277,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               sortType: _appListSortType,
               notificationCounts: _notificationCounts,
               showNotificationBadges: _showNotificationBadges,
-              searchController: _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController,
+              searchController: _showingHiddenApps || _isSelectingAppsToHide
+                  ? _hiddenAppsSearchController
+                  : _searchController,
               isBackgroundLoading: _isBackgroundLoading,
             ),
           ),
@@ -1248,88 +1291,111 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Widget _buildWidgetsList() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Stack(
       children: [
         GestureDetector(
-          onLongPress: _isReorderingWidgets ? null : () {
-            if (_addedWidgets.isNotEmpty) {
-              HapticFeedback.heavyImpact();
-              showModalBottomSheet(
-                context: context,
-                backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (context) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.reorder, color: isDarkMode ? Colors.white : Colors.black),
-                        title: Text(
-                          'Reorder Widgets',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() {
-                            _isReorderingWidgets = true;
-                          });
-                        },
+          onLongPress: _isReorderingWidgets
+              ? null
+              : () {
+                  if (_addedWidgets.isNotEmpty) {
+                    HapticFeedback.heavyImpact();
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: isDarkMode
+                          ? const Color(0xFF212121)
+                          : const Color(0xFFF5F5F5),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(20)),
                       ),
-                      ListTile(
-                        leading: Icon(Icons.delete_sweep, color: Colors.red),
-                        title: Text(
-                          'Remove All Widgets',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+                      builder: (context) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: Icon(Icons.reorder,
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black),
                               title: Text(
-                                'Clear All Widgets',
-                                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                                'Reorder Widgets',
+                                style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black),
                               ),
-                              content: Text(
-                                'Are you sure you want to remove all widgets?',
-                                style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    for (var widget in _addedWidgets) {
-                                      if (widget.widgetId != null) {
-                                        await WidgetManager.removeWidget(widget.widgetId!);
-                                      }
-                                    }
-                                    await _loadAddedWidgets();
-                                    setState(() {});
-                                  },
-                                  child: Text(
-                                    'Remove All',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
+                              onTap: () {
+                                Navigator.pop(context);
+                                setState(() {
+                                  _isReorderingWidgets = true;
+                                });
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ],
-                  );
+                            ListTile(
+                              leading:
+                                  Icon(Icons.delete_sweep, color: Colors.red),
+                              title: Text(
+                                'Remove All Widgets',
+                                style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black),
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: isDarkMode
+                                        ? const Color(0xFF212121)
+                                        : const Color(0xFFF5F5F5),
+                                    title: Text(
+                                      'Clear All Widgets',
+                                      style: TextStyle(
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : Colors.black),
+                                    ),
+                                    content: Text(
+                                      'Are you sure you want to remove all widgets?',
+                                      style: TextStyle(
+                                          color: isDarkMode
+                                              ? Colors.white70
+                                              : Colors.black54),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                          for (var widget in _addedWidgets) {
+                                            if (widget.widgetId != null) {
+                                              await WidgetManager.removeWidget(
+                                                  widget.widgetId!);
+                                            }
+                                          }
+                                          await _loadAddedWidgets();
+                                          setState(() {});
+                                        },
+                                        child: Text(
+                                          'Remove All',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }
                 },
-              );
-            }
-          },
           child: Column(
             children: [
               if (_isReorderingWidgets)
@@ -1337,7 +1403,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Colors.white70, size: 20),
+                      const Icon(Icons.info_outline,
+                          color: Colors.white70, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1367,7 +1434,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           children: [
                             const Text(
                               'No widgets added',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 16),
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton(
@@ -1381,9 +1449,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         data: Theme.of(context).copyWith(
                           canvasColor: Colors.transparent,
                           scrollbarTheme: ScrollbarThemeData(
-                            thumbColor: MaterialStateProperty.all(Colors.white.withAlpha(77)),
+                            thumbColor: WidgetStateProperty.all(
+                                Colors.white.withAlpha(77)),
                             radius: const Radius.circular(20),
-                            thickness: MaterialStateProperty.all(6.0),
+                            thickness: WidgetStateProperty.all(6.0),
                             interactive: true,
                           ),
                         ),
@@ -1393,7 +1462,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           interactive: true,
                           child: ScrollConfiguration(
                             behavior: AppScrollBehavior().copyWith(
-                              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                              physics: const BouncingScrollPhysics(
+                                  parent: AlwaysScrollableScrollPhysics()),
                             ),
                             child: ReorderableListView.builder(
                               scrollController: _widgetsScrollController,
@@ -1417,14 +1487,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 child: ResizableWidget(
                                   isReorderMode: _isReorderingWidgets,
                                   onLongPress: () => _showWidgetOptions(
-                                    context, 
-                                    _addedWidgets[index]
-                                  ),
+                                      context, _addedWidgets[index]),
                                   child: Container(
                                     width: double.infinity,
-                                    height: _addedWidgets[index].minHeight.toDouble(),
+                                    height: _addedWidgets[index]
+                                        .minHeight
+                                        .toDouble(),
                                     decoration: BoxDecoration(
-                                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
+                                      color: (isDarkMode
+                                              ? Colors.white
+                                              : Colors.black)
+                                          .withAlpha(26),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: LiveWidgetPreview(
@@ -1447,7 +1520,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _showAddWidgetDialog,
-            backgroundColor: isDarkMode ? const Color(0xFF6750A4) : const Color(0xFF6200EE),
+            backgroundColor:
+                isDarkMode ? const Color(0xFF6750A4) : const Color(0xFF6200EE),
             child: Icon(Icons.add, color: Colors.white),
           ),
         ),
@@ -1457,19 +1531,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _showAddWidgetDialog() async {
     final widgets = await WidgetManager.getAvailableWidgets();
-    
+
     if (!mounted) return;
-    
+
     await showDialog(
       context: context,
       builder: (context) {
         final searchController = TextEditingController();
         List<WidgetInfo> filteredWidgets = List.from(widgets);
-        
+
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+              backgroundColor: isDarkMode
+                  ? const Color(0xFF212121)
+                  : const Color(0xFFF5F5F5),
               title: const Text(
                 'Add Widget',
                 style: TextStyle(color: Colors.white),
@@ -1483,10 +1559,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search widgets...',
-                        hintStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
-                        prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.white70 : Colors.black54),
+                        hintStyle: TextStyle(
+                            color:
+                                isDarkMode ? Colors.white70 : Colors.black54),
+                        prefixIcon: Icon(Icons.search,
+                            color:
+                                isDarkMode ? Colors.white70 : Colors.black54),
                         filled: true,
-                        fillColor: isDarkMode ? const Color(0xFF3A3A3A) : const Color(0xFFE0E0E0),
+                        fillColor: isDarkMode
+                            ? const Color(0xFF3A3A3A)
+                            : const Color(0xFFE0E0E0),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none,
@@ -1494,10 +1576,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       ),
                       onChanged: (value) {
                         setState(() {
-                          filteredWidgets = widgets.where((widget) => 
-                            widget.appName.toLowerCase().contains(value.toLowerCase()) ||
-                            widget.label.toLowerCase().contains(value.toLowerCase())
-                          ).toList();
+                          filteredWidgets = widgets
+                              .where((widget) =>
+                                  widget.appName
+                                      .toLowerCase()
+                                      .contains(value.toLowerCase()) ||
+                                  widget.label
+                                      .toLowerCase()
+                                      .contains(value.toLowerCase()))
+                              .toList();
                         });
                       },
                     ),
@@ -1507,12 +1594,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         shrinkWrap: true,
                         itemCount: _groupWidgetsByApp(filteredWidgets).length,
                         itemBuilder: (context, index) {
-                          final entry = _groupWidgetsByApp(filteredWidgets).entries.elementAt(index);
+                          final entry = _groupWidgetsByApp(filteredWidgets)
+                              .entries
+                              .elementAt(index);
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
                                 child: Text(
                                   entry.key,
                                   style: TextStyle(
@@ -1523,25 +1613,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                 ),
                               ),
                               ...entry.value.map((widget) => ListTile(
-                                title: Text(
-                                  widget.label,
-                                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-                                ),
-                                subtitle: Text(
-                                  '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
-                                  '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
-                                  style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
-                                ),
-                                onTap: () async {
-                                  Navigator.pop(context);
-                                  final success = await WidgetManager.addWidget(widget);
-                                  if (success && mounted) {
-                                    await _loadAddedWidgets();
-                                    setState(() {}); // Refresh the widget list
-                                  }
-                                },
-                              )),
-                              Divider(color: isDarkMode ? const Color(0x3DFFFFFF) : const Color(0x3D000000)),
+                                    title: Text(
+                                      widget.label,
+                                      style: TextStyle(
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : Colors.black),
+                                    ),
+                                    subtitle: Text(
+                                      '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
+                                      '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
+                                      style: TextStyle(
+                                          color: isDarkMode
+                                              ? Colors.white70
+                                              : Colors.black54),
+                                    ),
+                                    onTap: () async {
+                                      Navigator.pop(context);
+                                      final success =
+                                          await WidgetManager.addWidget(widget);
+                                      if (success && mounted) {
+                                        await _loadAddedWidgets();
+                                        setState(
+                                            () {}); // Refresh the widget list
+                                      }
+                                    },
+                                  )),
+                              Divider(
+                                  color: isDarkMode
+                                      ? const Color(0x3DFFFFFF)
+                                      : const Color(0x3D000000)),
                             ],
                           );
                         },
@@ -1555,7 +1656,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         );
       },
     );
-    
+
     // Refresh widgets list after dialog is closed
     if (mounted) {
       await _loadAddedWidgets();
@@ -1570,7 +1671,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (widget.minWidth <= 0 || widget.minHeight <= 0) {
         continue;
       }
-      
+
       if (!grouped.containsKey(widget.appName)) {
         grouped[widget.appName] = [];
       }
@@ -1578,17 +1679,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
     // Remove empty app groups
     grouped.removeWhere((key, value) => value.isEmpty);
-    
+
     return Map.fromEntries(
-      grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key))
-    );
+        grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
   }
 
   void _showWidgetOptions(BuildContext context, WidgetInfo widget) {
     HapticFeedback.heavyImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1605,7 +1706,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               height: 4,
               margin: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                color: isDarkMode
+                    ? const Color(0xFF757575)
+                    : const Color(0xFFBDBDBD),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1619,7 +1722,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 20),
                         child: Row(
                           children: [
                             FutureBuilder<Widget>(
@@ -1643,7 +1747,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   Text(
                                     widget.label,
                                     style: TextStyle(
-                                      color: isDarkMode ? Colors.white : Colors.black,
+                                      color: isDarkMode
+                                          ? Colors.white
+                                          : Colors.black,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1651,7 +1757,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                                   Text(
                                     widget.appName,
                                     style: TextStyle(
-                                      color: isDarkMode ? Colors.white70 : Colors.black54,
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black54,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -1662,10 +1770,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         ),
                       ),
                       ListTile(
-                        leading: Icon(Icons.reorder, color: isDarkMode ? Colors.white : Colors.black),
+                        leading: Icon(Icons.reorder,
+                            color: isDarkMode ? Colors.white : Colors.black),
                         title: Text(
                           'Reorder Widgets',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
                         ),
                         onTap: () {
                           Navigator.pop(context);
@@ -1678,7 +1788,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         leading: Icon(Icons.delete, color: Colors.red),
                         title: Text(
                           'Remove Widget',
-                          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
                         ),
                         onTap: () async {
                           Navigator.pop(context);
@@ -1723,9 +1834,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         }
       } catch (e) {
         // App not found in the list, continue to other methods
-        debugPrint('App $packageName not found in current list when loading icon data: $e');
+        debugPrint(
+            'App $packageName not found in current list when loading icon data: $e');
       }
-      
+
       // If not found or icon is null, try to load icon
       return await _loadAppIcon(packageName);
     } catch (e) {
@@ -1738,7 +1850,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (_iconCache.containsKey(packageName)) {
       return _iconCache[packageName];
     }
-    
+
     try {
       // First try to load from database cache
       final iconData = await AppDatabase.loadIconFromCache(packageName);
@@ -1750,7 +1862,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         _iconCache[packageName] = iconData;
         return iconData;
       }
-      
+
       // Fallback to loading from app if not in cache
       final app = _apps.firstWhere((app) => app.packageName == packageName);
       if (app.icon != null) {
@@ -1795,39 +1907,39 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _savePinnedApps() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Keep only valid apps while preserving order
-    final validPinnedApps = _pinnedApps.where((app) => 
-      _apps.any((a) => a.packageName == app.packageName)
-    ).toList();
-    
+    final validPinnedApps = _pinnedApps
+        .where((app) => _apps.any((a) => a.packageName == app.packageName))
+        .toList();
+
     if (!listEquals(validPinnedApps, _pinnedApps)) {
       setState(() {
         _pinnedApps = validPinnedApps;
       });
     }
-    
+
     // Save both package names and their order
-    final pinnedAppData = validPinnedApps.asMap().map((index, app) => 
-      MapEntry(app.packageName, index)
-    );
+    final pinnedAppData = validPinnedApps
+        .asMap()
+        .map((index, app) => MapEntry(app.packageName, index));
     await prefs.setString('pinned_apps_data', jsonEncode(pinnedAppData));
   }
 
   Future<void> _loadPinnedApps() async {
     final prefs = await SharedPreferences.getInstance();
     final String? savedData = prefs.getString('pinned_apps_data');
-    
+
     if (_apps.isEmpty || savedData == null) return;
-    
+
     try {
       final Map<String, dynamic> pinnedData = jsonDecode(savedData);
       final orderedApps = <AppInfo>[];
-      
+
       // Sort by saved index and create list
       final sortedEntries = pinnedData.entries.toList()
         ..sort((a, b) => (a.value as int).compareTo(b.value as int));
-      
+
       for (var entry in sortedEntries) {
         try {
           final app = _apps.firstWhere(
@@ -1839,7 +1951,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           continue;
         }
       }
-      
+
       setState(() {
         _pinnedApps = orderedApps;
       });
@@ -1860,7 +1972,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void _showAppListSortOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+      backgroundColor:
+          isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1879,52 +1992,72 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   height: 4,
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? const Color(0xFF757575) : const Color(0xFFBDBDBD),
+                    color: isDarkMode
+                        ? const Color(0xFF757575)
+                        : const Color(0xFFBDBDBD),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 ListTile(
-                  leading: Icon(Icons.trending_up, color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort by Usage', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(Icons.trending_up,
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort by Usage',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black)),
                   trailing: _appListSortType == AppListSortType.usage
-                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black)
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
-                    await AppUsageTracker.sortAppList(_apps, AppListSortType.usage);
+                    await AppUsageTracker.sortAppList(
+                        _apps, AppListSortType.usage);
                     setState(() {
                       _appListSortType = AppListSortType.usage;
-                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(_apps,
+                          sortType: _appListSortType);
                     });
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.sort_by_alpha, color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort A to Z', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(Icons.sort_by_alpha,
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort A to Z',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black)),
                   trailing: _appListSortType == AppListSortType.alphabeticalAsc
-                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black)
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
-                    await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalAsc);
+                    await AppUsageTracker.sortAppList(
+                        _apps, AppListSortType.alphabeticalAsc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalAsc;
-                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(_apps,
+                          sortType: _appListSortType);
                     });
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.sort_by_alpha_rounded, color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort Z to A', style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(Icons.sort_by_alpha_rounded,
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  title: Text('Sort Z to A',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black)),
                   trailing: _appListSortType == AppListSortType.alphabeticalDesc
-                      ? Icon(Icons.check, color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black)
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
-                    await AppUsageTracker.sortAppList(_apps, AppListSortType.alphabeticalDesc);
+                    await AppUsageTracker.sortAppList(
+                        _apps, AppListSortType.alphabeticalDesc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalDesc;
-                      _appSections = AppSectionManager.createSections(_apps, sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(_apps,
+                          sortType: _appListSortType);
                     });
                   },
                 ),
@@ -1943,7 +2076,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void _smoothScrollListener() {
     if (!_scrollController.hasClients) return;
-    
+
     final position = _scrollController.position.pixels;
 
     // Calculate current section
@@ -1951,7 +2084,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (_pinnedApps.isNotEmpty && _searchController.text.isEmpty) {
       currentPos += 48.0 + (_pinnedApps.length * 72.0) + 16.0 + 48.0;
     }
-    
+
     String newSection = '';
     for (var section in _appSections) {
       final sectionHeight = 40.0 + (section.apps.length * 72.0);
@@ -1961,222 +2094,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
       currentPos += sectionHeight;
     }
-    
+
     if (newSection != _currentSection) {
       _currentSection = newSection;
       HapticFeedback.selectionClick();
     }
-  }
-
-  Widget _buildPinnedAppsHeader() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Pinned Apps',
-              style: TextStyle(
-                color: isDarkMode 
-                    ? const Color.fromARGB(230, 255, 255, 255) // 0.9 opacity (230/255)
-                    : const Color.fromARGB(204, 0, 0, 0), // 0.8 opacity (204/255)
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String letter) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? const Color.fromARGB(51, 103, 80, 164) // 0.2 opacity (51/255)
-                  : const Color.fromARGB(26, 103, 80, 164), // 0.1 opacity (26/255)
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Center(
-              child: Text(
-                letter,
-                style: TextStyle(
-                  color: isDarkMode ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: isDarkMode 
-                  ? const Color.fromARGB(26, 255, 255, 255) // 0.1 opacity (26/255)
-                  : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppTile(AppInfo app, bool isPinned) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
-    if (_isSelectingAppsToHide) {
-      final isHidden = _hiddenApps.contains(app.packageName);
-      return ListTile(
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: app.icon != null
-                ? Image.memory(app.icon!)
-                : const Icon(Icons.android, color: Colors.white),
-          ),
-        ),
-        title: Text(
-          app.name,
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: Icon(
-          isHidden ? Icons.check_box : Icons.check_box_outline_blank,
-          color: isHidden ? Colors.red : (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
-        ),
-        onTap: () async {
-          setState(() {
-            if (!isHidden) {
-              _hiddenApps.add(app.packageName);
-              // Remove from pinned apps immediately if present
-              if (_pinnedApps.any((pinnedApp) => pinnedApp.packageName == app.packageName)) {
-                _pinnedAppsBackup.add(app.packageName);
-                _pinnedApps.removeWhere((pinnedApp) => pinnedApp.packageName == app.packageName);
-                _savePinnedApps(); // Save pinned apps state immediately
-              }
-            } else {
-              _hiddenApps.remove(app.packageName);
-              // Don't automatically restore pinned status - require user to pin again
-              if (_pinnedAppsBackup.contains(app.packageName)) {
-                _pinnedAppsBackup.remove(app.packageName);
-                // Don't add back to _pinnedApps
-                _savePinnedApps(); // Save pinned apps state immediately
-              }
-            }
-          });
-        },
-      );
-    }
-
-    return Stack(
-      children: [
-        ListTile(
-          leading: Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: FutureBuilder<Uint8List?>(
-                future: _getAppIconData(app.packageName),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data != null) {
-                    return Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Image.memory(
-                        snapshot.data!,
-                        width: 46,
-                        height: 46,
-                        fit: BoxFit.contain,
-                      ),
-                    );
-                  }
-                  return const Icon(
-                    Icons.android,
-                    color: Colors.white,
-                  );
-                },
-              ),
-            ),
-          ),
-          title: Text(
-            app.name,
-            style: TextStyle(
-              color: isDarkMode ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w500,
-              fontSize: 15,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: _showNotificationBadges && _notificationCounts.containsKey(app.packageName) && _notificationCounts[app.packageName]! > 0
-              ? Text(
-                  '${_notificationCounts[app.packageName]} notification${_notificationCounts[app.packageName]! > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                    fontSize: 12,
-                  ),
-                )
-              : null,
-          onTap: () async {
-              HapticFeedback.selectionClick();
-              await InstalledApps.startApp(app.packageName);
-              await AppUsageTracker.recordAppLaunch(app.packageName);
-            },
-          onLongPress: () {
-              _showAppOptions(context, app, isPinned);
-          },
-          trailing: isPinned
-              ? Icon(
-                  Icons.push_pin,
-                  color: isDarkMode ? Colors.grey : Colors.black,
-                )
-              : null,
-        ),
-      ],
-    );
   }
 
   double _getBottomSheetPadding(BuildContext context) {
@@ -2188,14 +2110,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   void _unfocusSearch() {
     _searchFocusNode.unfocus();
-    setState(() {
-    });
+    setState(() {});
   }
 
   Widget _buildSearchBar() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final controller = _showingHiddenApps || _isSelectingAppsToHide ? _hiddenAppsSearchController : _searchController;
-    
+    final controller = _showingHiddenApps || _isSelectingAppsToHide
+        ? _hiddenAppsSearchController
+        : _searchController;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Container(
@@ -2217,11 +2140,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             fontSize: 16,
           ),
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            hintText: _showingHiddenApps 
-                ? 'Search hidden apps...' 
-                : _isSelectingAppsToHide 
-                    ? 'Search apps to hide...' 
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            hintText: _showingHiddenApps
+                ? 'Search hidden apps...'
+                : _isSelectingAppsToHide
+                    ? 'Search apps to hide...'
                     : 'Search apps...',
             hintStyle: TextStyle(
               color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
@@ -2236,7 +2160,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ? IconButton(
                     icon: Icon(
                       Icons.clear,
-                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                      color: (isDarkMode ? Colors.white : Colors.black)
+                          .withAlpha(179),
                       size: 22,
                     ),
                     onPressed: () {
@@ -2246,44 +2171,50 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       });
                     },
                   )
-                : _isSelectingAppsToHide ? null : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.sort, 
-                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                        size: 22,
-                      ),
-                      onPressed: _showAppListSortOptions,
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.settings, 
-                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
-                        size: 22,
-                      ),
-                      onPressed: () {
-                        NavigationState.currentScreen = 'settings';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SettingsPage(
-                              isSearchBarAtTop: _isSearchBarAtTop,
-                              onSearchBarPositionChanged: _updateSearchBarPosition,
-                              onNotificationBadgesChanged: (value) {
-                                setState(() {
-                                  _showNotificationBadges = value;
-                                });
-                              },
-                              onLayoutChanged: _refreshAppLayout,
+                : _isSelectingAppsToHide
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.sort,
+                              color: (isDarkMode ? Colors.white : Colors.black)
+                                  .withAlpha(179),
+                              size: 22,
                             ),
+                            onPressed: _showAppListSortOptions,
                           ),
-                        ).then((_) => NavigationState.currentScreen = 'main');
-                      },
-                    ),
-                  ],
-                ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.settings,
+                              color: (isDarkMode ? Colors.white : Colors.black)
+                                  .withAlpha(179),
+                              size: 22,
+                            ),
+                            onPressed: () {
+                              NavigationState.currentScreen = 'settings';
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SettingsPage(
+                                    isSearchBarAtTop: _isSearchBarAtTop,
+                                    onSearchBarPositionChanged:
+                                        _updateSearchBarPosition,
+                                    onNotificationBadgesChanged: (value) {
+                                      setState(() {
+                                        _showNotificationBadges = value;
+                                      });
+                                    },
+                                    onLayoutChanged: _refreshAppLayout,
+                                  ),
+                                ),
+                              ).then((_) =>
+                                  NavigationState.currentScreen = 'main');
+                            },
+                          ),
+                        ],
+                      ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -2339,7 +2270,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         _isWidgetsScrolling = true;
       });
     }
-    
+
     // Reset timer on each scroll event
     _widgetsScrollEndTimer?.cancel();
     _widgetsScrollEndTimer = Timer(const Duration(seconds: 3), () {
@@ -2349,27 +2280,5 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         });
       }
     });
-  }
-
-  Future<Uint8List?> _loadWidgetPreview(WidgetInfo widget) async {
-    // Return null if no preview image is provided
-    if (widget.previewImage.isEmpty) return null;
-    
-    // Use widgetId as key for caching (assumes widgetId is non-null for added widgets)
-    if (widget.widgetId != null && _widgetPreviewCache.containsKey(widget.widgetId)) {
-      return _widgetPreviewCache[widget.widgetId];
-    }
-    
-    try {
-      // Decode the base64-encoded preview image
-      final decoded = base64Decode(widget.previewImage);
-      if (widget.widgetId != null) {
-        _widgetPreviewCache[widget.widgetId!] = decoded;
-      }
-      return decoded;
-    } catch (e) {
-      debugPrint('Error decoding widget preview image: $e');
-      return null;
-    }
   }
 }

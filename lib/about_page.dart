@@ -10,13 +10,15 @@ class AboutPage extends StatelessWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
-      onPopInvoked: (didPop) {
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
         if (!didPop) {
           Navigator.of(context).pop();
         }
       },
       child: Scaffold(
-        backgroundColor: isDarkMode ? const Color(0xFF121212) : Colors.grey.shade50,
+        backgroundColor:
+            isDarkMode ? const Color(0xFF121212) : Colors.grey.shade50,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(
@@ -57,12 +59,15 @@ class AboutPage extends StatelessWidget {
                       height: 100,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        color: isDarkMode 
-                            ? const Color.fromARGB(13, 255, 255, 255) // 0.05 opacity (13/255)
-                            : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
+                        color: isDarkMode
+                            ? const Color.fromARGB(
+                                13, 255, 255, 255) // 0.05 opacity (13/255)
+                            : const Color.fromARGB(
+                                13, 0, 0, 0), // 0.05 opacity (13/255)
                         boxShadow: [
                           BoxShadow(
-                            color: const Color.fromARGB(26, 0, 0, 0), // 0.1 opacity (26/255)
+                            color: const Color.fromARGB(
+                                26, 0, 0, 0), // 0.1 opacity (26/255)
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -79,7 +84,7 @@ class AboutPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // App Name
                     Text(
                       'FLauncher',
@@ -91,51 +96,59 @@ class AboutPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
+
                     // Version and Build Number
                     Text(
                       'Version ${packageInfo.version}',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: isDarkMode 
-                            ? const Color.fromARGB(179, 255, 255, 255) // 0.7 opacity (179/255)
-                            : const Color.fromARGB(179, 0, 0, 0), // 0.7 opacity (179/255)
+                        color: isDarkMode
+                            ? const Color.fromARGB(
+                                179, 255, 255, 255) // 0.7 opacity (179/255)
+                            : const Color.fromARGB(
+                                179, 0, 0, 0), // 0.7 opacity (179/255)
                       ),
                     ),
                     Text(
                       'Build ${packageInfo.buildNumber}',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        color: isDarkMode 
-                            ? const Color.fromARGB(128, 255, 255, 255) // 0.5 opacity (128/255)
-                            : const Color.fromARGB(128, 0, 0, 0), // 0.5 opacity (128/255)
+                        color: isDarkMode
+                            ? const Color.fromARGB(
+                                128, 255, 255, 255) // 0.5 opacity (128/255)
+                            : const Color.fromARGB(
+                                128, 0, 0, 0), // 0.5 opacity (128/255)
                       ),
                     ),
                     const SizedBox(height: 40),
-                    
+
                     // Divider
                     Container(
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: isDarkMode 
-                            ? const Color.fromARGB(77, 103, 80, 164) // 0.3 opacity (77/255)
-                            : const Color.fromARGB(51, 103, 80, 164), // 0.2 opacity (51/255)
+                        color: isDarkMode
+                            ? const Color.fromARGB(
+                                77, 103, 80, 164) // 0.3 opacity (77/255)
+                            : const Color.fromARGB(
+                                51, 103, 80, 164), // 0.2 opacity (51/255)
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 40),
-                    
+
                     // Creator Info
                     Text(
                       'Created by',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        color: isDarkMode 
-                            ? const Color.fromARGB(153, 255, 255, 255) // 0.6 opacity (153/255)
-                            : const Color.fromARGB(153, 0, 0, 0), // 0.6 opacity (153/255)
+                        color: isDarkMode
+                            ? const Color.fromARGB(
+                                153, 255, 255, 255) // 0.6 opacity (153/255)
+                            : const Color.fromARGB(
+                                153, 0, 0, 0), // 0.6 opacity (153/255)
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -156,4 +169,4 @@ class AboutPage extends StatelessWidget {
       ),
     );
   }
-} 
+}

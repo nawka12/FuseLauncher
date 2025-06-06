@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
-import 'dart:typed_data';
 import '../app_sections.dart';
 import 'app_layout_manager.dart';
-import 'package:flutter/gestures.dart';
 import 'dart:async';
 import '../sort_options.dart';
 import '../database/app_database.dart';
@@ -24,7 +22,7 @@ class AppGridView extends StatefulWidget {
   final AppListSortType sortType;
 
   const AppGridView({
-    Key? key,
+    super.key,
     required this.apps,
     required this.pinnedApps,
     required this.showingHiddenApps,
@@ -36,7 +34,7 @@ class AppGridView extends StatefulWidget {
     required this.showNotificationBadges,
     required this.searchController,
     required this.sortType,
-  }) : super(key: key);
+  });
 
   @override
   State<AppGridView> createState() => _AppGridViewState();
@@ -56,24 +54,24 @@ class _AppGridViewState extends State<AppGridView> {
     super.initState();
     _loadColumnCount();
     _scrollController.addListener(_scrollListener);
-    
+
     // Add listener to search controller to force rebuild when text changes
     widget.searchController.addListener(_onSearchChanged);
   }
-  
+
   @override
   void didUpdateWidget(AppGridView oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Reload column count when widget updates
     _loadColumnCount();
-    
+
     // Update search controller listener if the controller has changed
     if (widget.searchController != oldWidget.searchController) {
       oldWidget.searchController.removeListener(_onSearchChanged);
       widget.searchController.addListener(_onSearchChanged);
     }
   }
-  
+
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
@@ -81,7 +79,7 @@ class _AppGridViewState extends State<AppGridView> {
     widget.searchController.removeListener(_onSearchChanged);
     super.dispose();
   }
-  
+
   void _scrollListener() {
     if (_scrollController.hasClients) {
       // Update scrolling state
@@ -90,7 +88,7 @@ class _AppGridViewState extends State<AppGridView> {
           _isScrolling = true;
         });
       }
-      
+
       // Reset timer on each scroll event
       _scrollEndTimer?.cancel();
       _scrollEndTimer = Timer(const Duration(seconds: 3), () {
@@ -100,29 +98,34 @@ class _AppGridViewState extends State<AppGridView> {
           });
         }
       });
-      
+
       // Get all section headers from the screen
       final sections = AppSectionManager.createSections(_filteredApps);
       if (sections.isEmpty) return;
-      
+
       // Approximate check for which section is most visible
       final scrollPosition = _scrollController.position.pixels;
-      
+
       // Calculate the approximate position of each section
       double sectionPosition = 0;
       double itemHeight = 120.0; // Approximate height of a grid item
-      double sectionHeaderHeight = 60.0; // Approximate height of a section header
-      
+      double sectionHeaderHeight =
+          60.0; // Approximate height of a section header
+
       String? visibleSection;
       double pinnedSectionHeight = 0;
-      
+
       // Account for pinned apps section if it exists
-      if (!widget.showingHiddenApps && widget.pinnedApps.isNotEmpty && widget.searchController.text.isEmpty) {
+      if (!widget.showingHiddenApps &&
+          widget.pinnedApps.isNotEmpty &&
+          widget.searchController.text.isEmpty) {
         int pinnedRowCount = (widget.pinnedApps.length / _columnCount).ceil();
-        pinnedSectionHeight = 40.0 + (pinnedRowCount * itemHeight) + 20.0; // Header + items + divider
+        pinnedSectionHeight = 40.0 +
+            (pinnedRowCount * itemHeight) +
+            20.0; // Header + items + divider
         sectionPosition += pinnedSectionHeight;
       }
-      
+
       // Find which section is most visible
       for (var i = 0; i < sections.length; i++) {
         final section = sections[i];
@@ -130,14 +133,15 @@ class _AppGridViewState extends State<AppGridView> {
         int rowCount = (section.apps.length / _columnCount).ceil();
         final sectionHeight = sectionHeaderHeight + (rowCount * itemHeight);
         sectionPosition += sectionHeight;
-        
+
         // Check if we're in this section's range
-        if (scrollPosition >= sectionStart && scrollPosition < sectionPosition) {
+        if (scrollPosition >= sectionStart &&
+            scrollPosition < sectionPosition) {
           visibleSection = section.letter;
           break;
         }
       }
-      
+
       // Trigger haptic feedback when section changes
       if (visibleSection != null && visibleSection != _currentSection) {
         HapticFeedback.selectionClick();
@@ -165,45 +169,52 @@ class _AppGridViewState extends State<AppGridView> {
 
   List<AppInfo> get _filteredApps {
     List<AppInfo> apps;
-    
+
     if (widget.isSelectingAppsToHide) {
       // When selecting apps to hide, show all apps except system apps
       apps = List<AppInfo>.from(widget.apps)
-        ..sort((a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
-      
+        ..sort(
+            (a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
+
       // Apply search filter if query exists
       final query = widget.searchController.text.toLowerCase();
       if (query.isNotEmpty) {
-        apps = apps.where((app) => 
-          (app.name.toLowerCase().contains(query))
-        ).toList();
+        apps = apps
+            .where((app) => (app.name.toLowerCase().contains(query)))
+            .toList();
       }
       return apps;
     } else {
       // Normal app list filtering
-      apps = widget.showingHiddenApps 
-          ? widget.apps.where((app) => widget.hiddenApps.contains(app.packageName)).toList()
-          : widget.apps.where((app) => !widget.hiddenApps.contains(app.packageName)).toList();
-      
+      apps = widget.showingHiddenApps
+          ? widget.apps
+              .where((app) => widget.hiddenApps.contains(app.packageName))
+              .toList()
+          : widget.apps
+              .where((app) => !widget.hiddenApps.contains(app.packageName))
+              .toList();
+
       // Apply sort type
       switch (widget.sortType) {
         case AppListSortType.alphabeticalAsc:
-          apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          apps.sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
           break;
         case AppListSortType.alphabeticalDesc:
-          apps.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+          apps.sort(
+              (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
           break;
         case AppListSortType.usage:
           // Leave as is, will be sorted by usage later
           break;
       }
-      
+
       final query = widget.searchController.text.toLowerCase();
       if (query.isEmpty) return apps;
-      
-      return apps.where((app) => 
-        (app.name.toLowerCase().contains(query))
-      ).toList();
+
+      return apps
+          .where((app) => (app.name.toLowerCase().contains(query)))
+          .toList();
     }
   }
 
@@ -211,7 +222,7 @@ class _AppGridViewState extends State<AppGridView> {
     if (_iconCache.containsKey(packageName)) {
       return _iconCache[packageName];
     }
-    
+
     try {
       // First try to load from database cache
       final iconData = await AppDatabase.loadIconFromCache(packageName);
@@ -223,9 +234,10 @@ class _AppGridViewState extends State<AppGridView> {
         _iconCache[packageName] = iconData;
         return iconData;
       }
-      
+
       // Fallback to loading from app if not in cache
-      final app = widget.apps.firstWhere((app) => app.packageName == packageName);
+      final app =
+          widget.apps.firstWhere((app) => app.packageName == packageName);
       if (app.icon != null) {
         // Manage cache size
         if (_iconCache.length >= _maxCacheSize) {
@@ -239,11 +251,11 @@ class _AppGridViewState extends State<AppGridView> {
     }
     return null;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     // For selection mode, we'll use a simple grid
     if (widget.isSelectingAppsToHide) {
       return Scrollbar(
@@ -253,7 +265,8 @@ class _AppGridViewState extends State<AppGridView> {
         radius: const Radius.circular(10.0),
         child: ScrollConfiguration(
           behavior: AppScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
           ),
           child: GridView.builder(
             padding: const EdgeInsets.all(16),
@@ -268,7 +281,7 @@ class _AppGridViewState extends State<AppGridView> {
             itemBuilder: (context, index) {
               final app = _filteredApps[index];
               final isHidden = widget.hiddenApps.contains(app.packageName);
-              
+
               return InkWell(
                 onTap: () {
                   // Toggle hidden status
@@ -302,7 +315,9 @@ class _AppGridViewState extends State<AppGridView> {
                                 width: _getIconSize(),
                                 height: _getIconSize(),
                                 decoration: BoxDecoration(
-                                  color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
+                                  color:
+                                      (isDarkMode ? Colors.white : Colors.black)
+                                          .withAlpha(26),
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
@@ -318,7 +333,9 @@ class _AppGridViewState extends State<AppGridView> {
                                       ? Image.memory(app.icon!)
                                       : Icon(
                                           Icons.android,
-                                          color: isDarkMode ? Colors.white : Colors.black54,
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : Colors.black54,
                                           size: 20,
                                         ),
                                 ),
@@ -327,11 +344,14 @@ class _AppGridViewState extends State<AppGridView> {
                               SizedBox(
                                 height: 28, // Reduced from 30
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 2), // Reduced from 3
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 2), // Reduced from 3
                                   child: Text(
                                     _formatAppName(app.name),
                                     style: TextStyle(
-                                      color: isDarkMode ? Colors.white : Colors.black,
+                                      color: isDarkMode
+                                          ? Colors.white
+                                          : Colors.black,
                                       fontSize: 10.5, // Reduced from 11
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -348,8 +368,12 @@ class _AppGridViewState extends State<AppGridView> {
                           top: 0,
                           right: 2,
                           child: Icon(
-                            isHidden ? Icons.check_circle : Icons.check_circle_outline,
-                            color: isHidden ? Colors.red : Colors.grey.withAlpha(150),
+                            isHidden
+                                ? Icons.check_circle
+                                : Icons.check_circle_outline,
+                            color: isHidden
+                                ? Colors.red
+                                : Colors.grey.withAlpha(150),
                             size: 22,
                           ),
                         ),
@@ -363,14 +387,14 @@ class _AppGridViewState extends State<AppGridView> {
         ),
       );
     }
-    
+
     // Regular grid view with sections
     return Theme(
       data: Theme.of(context).copyWith(
         scrollbarTheme: ScrollbarThemeData(
-          thumbColor: MaterialStateProperty.all(Colors.white.withAlpha(77)),
+          thumbColor: WidgetStateProperty.all(Colors.white.withAlpha(77)),
           radius: const Radius.circular(10.0),
-          thickness: MaterialStateProperty.all(6.0),
+          thickness: WidgetStateProperty.all(6.0),
           interactive: true,
         ),
       ),
@@ -380,13 +404,16 @@ class _AppGridViewState extends State<AppGridView> {
         controller: _scrollController,
         child: ScrollConfiguration(
           behavior: AppScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics()),
           ),
           child: CustomScrollView(
             controller: _scrollController,
             slivers: [
               // Pinned apps section
-              if (!widget.showingHiddenApps && widget.pinnedApps.isNotEmpty && widget.searchController.text.isEmpty) ...[
+              if (!widget.showingHiddenApps &&
+                  widget.pinnedApps.isNotEmpty &&
+                  widget.searchController.text.isEmpty) ...[
                 SliverToBoxAdapter(
                   child: _buildPinnedAppsHeader(),
                 ),
@@ -415,34 +442,34 @@ class _AppGridViewState extends State<AppGridView> {
                   ),
                 ),
               ],
-              
+
               // Regular apps
               ...AppSectionManager.createSections(
                 _filteredApps,
                 sortType: widget.sortType,
               ).expand((section) => [
-                SliverToBoxAdapter(
-                  child: _buildSectionHeader(section.letter),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _columnCount,
-                      childAspectRatio: 1.0,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                    SliverToBoxAdapter(
+                      child: _buildSectionHeader(section.letter),
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final app = section.apps[index];
-                        return _buildAppGridItem(app, false);
-                      },
-                      childCount: section.apps.length,
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: _columnCount,
+                          childAspectRatio: 1.0,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final app = section.apps[index];
+                            return _buildAppGridItem(app, false);
+                          },
+                          childCount: section.apps.length,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ]),
+                  ]),
             ],
           ),
         ),
@@ -452,10 +479,10 @@ class _AppGridViewState extends State<AppGridView> {
 
   Widget _buildAppGridItem(AppInfo app, bool isPinned) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final hasNotifications = widget.showNotificationBadges && 
-                            widget.notificationCounts.containsKey(app.packageName) && 
-                            widget.notificationCounts[app.packageName]! > 0;
-                            
+    final hasNotifications = widget.showNotificationBadges &&
+        widget.notificationCounts.containsKey(app.packageName) &&
+        widget.notificationCounts[app.packageName]! > 0;
+
     return InkWell(
       onTap: () async {
         HapticFeedback.selectionClick();
@@ -484,7 +511,8 @@ class _AppGridViewState extends State<AppGridView> {
                       width: _getIconSize(),
                       height: _getIconSize(),
                       decoration: BoxDecoration(
-                        color: (isDarkMode ? Colors.white : Colors.black).withAlpha(26),
+                        color: (isDarkMode ? Colors.white : Colors.black)
+                            .withAlpha(26),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -504,15 +532,18 @@ class _AppGridViewState extends State<AppGridView> {
                                 padding: EdgeInsets.all(_getIconPadding()),
                                 child: Image.memory(
                                   snapshot.data!,
-                                  width: _getIconSize() - (_getIconPadding() * 2),
-                                  height: _getIconSize() - (_getIconPadding() * 2),
+                                  width:
+                                      _getIconSize() - (_getIconPadding() * 2),
+                                  height:
+                                      _getIconSize() - (_getIconPadding() * 2),
                                   fit: BoxFit.contain,
                                 ),
                               );
                             }
                             return Icon(
                               Icons.android,
-                              color: isDarkMode ? Colors.white70 : Colors.black54,
+                              color:
+                                  isDarkMode ? Colors.white70 : Colors.black54,
                               size: 24,
                             );
                           },
@@ -523,7 +554,8 @@ class _AppGridViewState extends State<AppGridView> {
                     SizedBox(
                       height: 28, // Reduced from 30
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2), // Reduced from 3
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 2), // Reduced from 3
                         child: Text(
                           _formatAppName(app.name),
                           style: TextStyle(
@@ -572,15 +604,15 @@ class _AppGridViewState extends State<AppGridView> {
     if (name.length <= 12) {
       return name;
     }
-    
+
     // Check if the name contains spaces to determine where to split
     final words = name.split(' ');
-    
+
     // If it's a single long word or very few words, simply truncate
     if (words.length <= 1 || words.where((w) => w.length > 7).isNotEmpty) {
       return '${name.substring(0, 10)}..';
     }
-    
+
     // For multiple words, try to keep complete words
     String result = '';
     for (var word in words) {
@@ -590,7 +622,7 @@ class _AppGridViewState extends State<AppGridView> {
         break;
       }
     }
-    
+
     return '$result..';
   }
 
@@ -604,16 +636,20 @@ class _AppGridViewState extends State<AppGridView> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? const Color.fromARGB(51, 103, 80, 164) // 0.2 opacity (51/255)
-                  : const Color.fromARGB(26, 103, 80, 164), // 0.1 opacity (26/255)
+              color: isDarkMode
+                  ? const Color.fromARGB(
+                      51, 103, 80, 164) // 0.2 opacity (51/255)
+                  : const Color.fromARGB(
+                      26, 103, 80, 164), // 0.1 opacity (26/255)
               borderRadius: BorderRadius.circular(18),
             ),
             child: Center(
               child: Text(
                 letter,
                 style: TextStyle(
-                  color: isDarkMode ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
+                  color: isDarkMode
+                      ? const Color(0xFFD0BCFF)
+                      : const Color(0xFF6750A4),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -624,8 +660,9 @@ class _AppGridViewState extends State<AppGridView> {
           Expanded(
             child: Container(
               height: 1,
-              color: isDarkMode 
-                  ? const Color.fromARGB(26, 255, 255, 255) // 0.1 opacity (26/255)
+              color: isDarkMode
+                  ? const Color.fromARGB(
+                      26, 255, 255, 255) // 0.1 opacity (26/255)
                   : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
             ),
           ),
@@ -636,7 +673,7 @@ class _AppGridViewState extends State<AppGridView> {
 
   Widget _buildPinnedAppsHeader() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 12),
       child: Row(
@@ -644,15 +681,18 @@ class _AppGridViewState extends State<AppGridView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
+              color:
+                  isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               'Pinned Apps',
               style: TextStyle(
-                color: isDarkMode 
-                    ? const Color.fromARGB(230, 255, 255, 255) // 0.9 opacity (230/255)
-                    : const Color.fromARGB(204, 0, 0, 0), // 0.8 opacity (204/255)
+                color: isDarkMode
+                    ? const Color.fromARGB(
+                        230, 255, 255, 255) // 0.9 opacity (230/255)
+                    : const Color.fromARGB(
+                        204, 0, 0, 0), // 0.8 opacity (204/255)
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
@@ -681,7 +721,7 @@ class _AppGridViewState extends State<AppGridView> {
     }
   }
 
-  double _getNotificationBadgeHeight() {    
+  double _getNotificationBadgeHeight() {
     // Adjust badge position based on column count
     switch (_columnCount) {
       case 2:
@@ -765,4 +805,4 @@ class _AppGridViewState extends State<AppGridView> {
         return 2.0; // Default for 4 columns
     }
   }
-} 
+}

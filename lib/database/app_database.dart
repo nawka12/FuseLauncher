@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:installed_apps/app_info.dart';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -52,7 +51,8 @@ class AppDatabase {
 
     // Create indices for frequently queried columns
     await db.execute('CREATE INDEX idx_name ON $tableName (name)');
-    await db.execute('CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
+    await db
+        .execute('CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
   }
 
   static Future<void> _migrateV1ToV2(Database db) async {
@@ -63,7 +63,7 @@ class AppDatabase {
     if (hasIconColumn) {
       // Step 1: Extract icons and store them in the filesystem
       final List<Map<String, dynamic>> rows = await db.query(tableName);
-      
+
       // Create icons directory if it doesn't exist
       final iconDir = await _getIconDir();
       if (!await iconDir.exists()) {
@@ -74,7 +74,7 @@ class AppDatabase {
       for (var row in rows) {
         final packageName = row['packageName'] as String;
         final iconData = row['icon'] as Uint8List?;
-        
+
         if (iconData != null) {
           await _saveIconToFile(packageName, iconData);
         }
@@ -103,7 +103,8 @@ class AppDatabase {
 
       // Step 5: Create indices
       await db.execute('CREATE INDEX idx_name ON $tableName (name)');
-      await db.execute('CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
+      await db
+          .execute('CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
     }
   }
 
@@ -113,7 +114,7 @@ class AppDatabase {
     final batch = db.batch();
     final now = DateTime.now().millisecondsSinceEpoch;
     final iconDir = await _getIconDir();
-    
+
     if (!await iconDir.exists()) {
       await iconDir.create(recursive: true);
     }
@@ -123,16 +124,17 @@ class AppDatabase {
       tableName,
       columns: ['packageName'],
     );
-    
+
     // Create a set of package names from the newly fetched apps
-    final Set<String> currentPackageNames = apps.map((app) => app.packageName).toSet();
-    
+    final Set<String> currentPackageNames =
+        apps.map((app) => app.packageName).toSet();
+
     // Find apps that are in the database but no longer installed
     final List<String> uninstalledApps = cachedApps
         .where((app) => !currentPackageNames.contains(app['packageName']))
         .map((app) => app['packageName'] as String)
         .toList();
-    
+
     // Delete uninstalled apps from the database
     for (String packageName in uninstalledApps) {
       batch.delete(
@@ -140,7 +142,7 @@ class AppDatabase {
         where: 'packageName = ?',
         whereArgs: [packageName],
       );
-      
+
       // Also delete the icon file
       try {
         final iconFile = File(await _getIconPath(packageName));
@@ -158,7 +160,7 @@ class AppDatabase {
       if (app.icon != null) {
         await _saveIconToFile(app.packageName, app.icon!);
       }
-      
+
       // Insert app data without icon
       batch.insert(
         tableName,
@@ -180,11 +182,11 @@ class AppDatabase {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(tableName);
     final apps = <AppInfo>[];
-    
+
     // Process apps without using compute
     for (var map in maps) {
       final packageName = map['packageName'] as String;
-      
+
       // Load icon from file system
       Uint8List? iconData;
       try {
@@ -195,13 +197,13 @@ class AppDatabase {
       } catch (e) {
         // If we can't load the icon, continue without it
       }
-      
+
       // Fix the type cast issue by ensuring version_code is properly handled
       String versionName = map['version_name']?.toString() ?? '';
       String versionCodeStr = map['version_code']?.toString() ?? '0';
       int versionCode = int.tryParse(versionCodeStr) ?? 0;
       int timestamp = map['lastUpdated'] as int;
-      
+
       final app = AppInfo(
         name: map['name'] as String,
         packageName: packageName,
@@ -211,17 +213,17 @@ class AppDatabase {
         builtWith: BuiltWith.values.first,
         icon: iconData,
       );
-      
+
       apps.add(app);
     }
-    
+
     return apps;
   }
 
   static Future<void> clearOldCache(Duration maxAge) async {
     final db = await database;
     final cutoff = DateTime.now().subtract(maxAge).millisecondsSinceEpoch;
-    
+
     // Get package names of apps to be deleted
     final List<Map<String, dynamic>> oldApps = await db.query(
       tableName,
@@ -229,7 +231,7 @@ class AppDatabase {
       where: 'lastUpdated < ?',
       whereArgs: [cutoff],
     );
-    
+
     // Delete corresponding icon files
     for (var app in oldApps) {
       final packageName = app['packageName'] as String;
@@ -242,7 +244,7 @@ class AppDatabase {
         // Continue if we can't delete the file
       }
     }
-    
+
     // Delete from database
     await db.delete(
       tableName,
@@ -257,30 +259,32 @@ class AppDatabase {
       tableName,
       columns: ['MAX(lastUpdated) as lastUpdated'],
     );
-    
+
     if (result.isEmpty || result.first['lastUpdated'] == null) {
       return null;
     }
-    
-    return DateTime.fromMillisecondsSinceEpoch(result.first['lastUpdated'] as int);
+
+    return DateTime.fromMillisecondsSinceEpoch(
+        result.first['lastUpdated'] as int);
   }
-  
+
   static Future<Directory> _getIconDir() async {
     final appDir = await getApplicationDocumentsDirectory();
     return Directory('${appDir.path}/$iconCacheDirName');
   }
-  
+
   static Future<String> _getIconPath(String packageName) async {
     final iconDir = await _getIconDir();
     return '${iconDir.path}/$packageName.png';
   }
-  
-  static Future<void> _saveIconToFile(String packageName, Uint8List iconData) async {
+
+  static Future<void> _saveIconToFile(
+      String packageName, Uint8List iconData) async {
     final iconPath = await _getIconPath(packageName);
     final file = File(iconPath);
     await file.writeAsBytes(iconData);
   }
-  
+
   static Future<Uint8List?> loadIconFromCache(String packageName) async {
     try {
       final iconFile = File(await _getIconPath(packageName));
@@ -295,14 +299,14 @@ class AppDatabase {
 
   static Future<void> removeApp(String packageName) async {
     final db = await database;
-    
+
     // Delete from database
     await db.delete(
       tableName,
       where: 'packageName = ?',
       whereArgs: [packageName],
     );
-    
+
     // Delete icon
     try {
       final iconFile = File(await _getIconPath(packageName));
@@ -319,22 +323,22 @@ class AppDatabase {
   static Future<void> cleanupInvalidApps(List<String> validPackageNames) async {
     try {
       final db = await database;
-      
+
       // Get all package names in the database
       final List<Map<String, dynamic>> storedApps = await db.query(
         tableName,
         columns: ['packageName'],
       );
-      
+
       // Find package names that are in the database but no longer valid
       final List<String> invalidPackages = storedApps
           .map((app) => app['packageName'] as String)
           .where((packageName) => !validPackageNames.contains(packageName))
           .toList();
-      
+
       if (invalidPackages.isNotEmpty) {
         debugPrint('Cleaning up ${invalidPackages.length} invalid app entries');
-        
+
         // Remove each invalid app
         for (final packageName in invalidPackages) {
           await removeApp(packageName);
@@ -344,4 +348,4 @@ class AppDatabase {
       debugPrint('Error cleaning up invalid apps: $e');
     }
   }
-} 
+}

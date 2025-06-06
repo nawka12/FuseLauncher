@@ -42,7 +42,8 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _showNotificationBadges = prefs.getBool('show_notification_badges') ?? true;
+      _showNotificationBadges =
+          prefs.getBool('show_notification_badges') ?? true;
     });
   }
 
@@ -82,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showLayoutSettingsDialog(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -116,7 +117,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: AppLayoutType.list,
                     groupValue: _currentLayout,
                     onChanged: (value) async {
-                      await AppLayoutManager.saveLayoutPreference(AppLayoutType.list);
+                      await AppLayoutManager.saveLayoutPreference(
+                          AppLayoutType.list);
                       setDialogState(() {
                         _currentLayout = AppLayoutType.list;
                       });
@@ -137,7 +139,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: AppLayoutType.grid,
                     groupValue: _currentLayout,
                     onChanged: (value) async {
-                      await AppLayoutManager.saveLayoutPreference(AppLayoutType.grid);
+                      await AppLayoutManager.saveLayoutPreference(
+                          AppLayoutType.grid);
                       setDialogState(() {
                         _currentLayout = AppLayoutType.grid;
                       });
@@ -150,7 +153,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (_currentLayout == AppLayoutType.grid) ...[
                     const Divider(),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 8.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -216,17 +220,17 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return PopScope(
-      onPopInvoked: (didPop) {
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
         if (!didPop) {
           Navigator.of(context).pop();
         }
       },
       child: Scaffold(
-        backgroundColor: isDarkMode 
-            ? const Color(0xFF121212)
-            : Colors.grey.shade50,
+        backgroundColor:
+            isDarkMode ? const Color(0xFF121212) : Colors.grey.shade50,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(
@@ -239,7 +243,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           leading: IconButton(
             icon: Icon(
-              Icons.arrow_back, 
+              Icons.arrow_back,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
             onPressed: () => Navigator.pop(context),
@@ -256,11 +260,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    color: isDarkMode
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    Icons.search, 
+                    Icons.search,
                     color: isDarkMode ? Colors.white : Colors.black,
                     size: 22,
                   ),
@@ -277,14 +283,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   _currentPosition ? 'Top' : 'Bottom',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                    color: (isDarkMode ? Colors.white : Colors.black)
+                        .withAlpha(179),
                   ),
                 ),
                 onTap: () {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                      backgroundColor:
+                          isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -349,11 +357,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                      color: isDarkMode
+                          ? Colors.grey.shade800
+                          : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      AppLayoutManager.getLayoutIcon(_currentLayout), 
+                      AppLayoutManager.getLayoutIcon(_currentLayout),
                       color: isDarkMode ? Colors.white : Colors.black,
                       size: 22,
                     ),
@@ -370,7 +380,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     AppLayoutManager.layoutToDisplayName(_currentLayout),
                     style: GoogleFonts.poppins(
                       fontSize: 13,
-                      color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                      color: (isDarkMode ? Colors.white : Colors.black)
+                          .withAlpha(179),
                     ),
                   ),
                   onTap: () {
@@ -384,11 +395,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    color: isDarkMode
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    Icons.wallpaper, 
+                    Icons.wallpaper,
                     color: isDarkMode ? Colors.white : Colors.black,
                     size: 22,
                   ),
@@ -410,7 +423,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 secondary: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    color: isDarkMode
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -431,7 +446,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   _showNotificationBadges ? 'Shown' : 'Hidden',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    color: (isDarkMode ? Colors.white : Colors.black).withAlpha(179),
+                    color: (isDarkMode ? Colors.white : Colors.black)
+                        .withAlpha(179),
                   ),
                 ),
                 value: _showNotificationBadges,
@@ -447,7 +463,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                    color: isDarkMode
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -480,7 +498,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
-  
+
   Widget _buildSettingsCategory(String title) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Padding(
@@ -491,14 +509,12 @@ class _SettingsPageState extends State<SettingsPage> {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
-          color: isDarkMode 
-              ? const Color(0xFFD0BCFF)
-              : const Color(0xFF6750A4),
+          color: isDarkMode ? const Color(0xFFD0BCFF) : const Color(0xFF6750A4),
         ),
       ),
     );
   }
-  
+
   Widget _buildSettingsCard({required Widget child}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -516,4 +532,4 @@ class _SettingsPageState extends State<SettingsPage> {
       child: child,
     );
   }
-} 
+}
