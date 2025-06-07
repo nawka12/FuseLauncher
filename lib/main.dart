@@ -243,7 +243,6 @@ class _MyHomePageState extends State<MyHomePage>
     _loadHiddenApps();
     _loadPinnedAppsBackup();
     _loadHiddenAppFolderMap();
-    _loadFolders();
 
     const systemChannel =
         MethodChannel('com.kayfahaarukku.fuselauncher/system');
@@ -436,6 +435,7 @@ class _MyHomePageState extends State<MyHomePage>
       });
       await AppUsageTracker.sortAppList(_apps, _appListSortType);
       await _loadPinnedApps();
+      await _loadFolders();
       if (mounted) {
         setState(() {
           _appSections = AppSectionManager.createSections(_apps,
@@ -559,6 +559,8 @@ class _MyHomePageState extends State<MyHomePage>
 
         // Refresh pinned apps to ensure consistency
         await _loadPinnedApps();
+
+        await _loadFolders();
 
         if (mounted) {
           setState(() {
