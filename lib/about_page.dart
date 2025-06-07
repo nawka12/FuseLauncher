@@ -87,7 +87,7 @@ class AboutPage extends StatelessWidget {
 
                     // App Name
                     Text(
-                      'FLauncher',
+                      'FuseLauncher',
                       style: GoogleFonts.poppins(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,

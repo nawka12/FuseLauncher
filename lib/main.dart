@@ -22,6 +22,7 @@ import 'layouts/app_layout_switcher.dart';
 import 'layouts/app_layout_manager.dart';
 import 'dart:async';
 import 'app_package_manager.dart';
+import 'models/folder.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FLauncher',
+      title: 'FuseLauncher',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6750A4), // Primary purple color
@@ -180,6 +181,7 @@ class _MyHomePageState extends State<MyHomePage>
   final List<String> _tabs = ['Apps', 'Widgets'];
   int _selectedIndex = 0;
   List<AppInfo> _apps = [];
+  List<Folder> _folders = [];
   List<WidgetInfo> _addedWidgets = [];
   bool _isLoading = true;
   bool _isBackgroundLoading = false;
@@ -201,6 +203,7 @@ class _MyHomePageState extends State<MyHomePage>
   bool _hasCompletedFirstSwipe = false;
   DateTime? _lastSwipeTime;
   final Set<String> _pinnedAppsBackup = {};
+  final Map<String, int> _hiddenAppFolderMap = {};
   bool _isSelectingAppsToHide = false;
   Key _appLayoutKey = UniqueKey();
   bool _isWidgetsScrolling = false;
@@ -239,8 +242,11 @@ class _MyHomePageState extends State<MyHomePage>
     _loadSettings();
     _loadHiddenApps();
     _loadPinnedAppsBackup();
+    _loadHiddenAppFolderMap();
+    _loadFolders();
 
-    const systemChannel = MethodChannel('com.kayfahaarukku.flauncher/system');
+    const systemChannel =
+        MethodChannel('com.kayfahaarukku.fuselauncher/system');
     systemChannel.setMethodCallHandler((call) async {
       if (call.method == 'getNavigationState') {
         return NavigationState.currentScreen;
@@ -273,6 +279,27 @@ class _MyHomePageState extends State<MyHomePage>
       return null;
     });
     _widgetsScrollController.addListener(_widgetsScrollListener);
+  }
+
+  Future<void> _loadFolders() async {
+    final folders = await AppDatabase.getFolders();
+    for (var folder in folders) {
+      folder.apps = folder.appPackageNames
+          .map((packageName) {
+            try {
+              return _apps.firstWhere((app) => app.packageName == packageName);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<AppInfo>()
+          .toList();
+    }
+    if (mounted) {
+      setState(() {
+        _folders = folders;
+      });
+    }
   }
 
   /// Clean up the database to ensure it's in sync with installed apps
@@ -585,12 +612,19 @@ class _MyHomePageState extends State<MyHomePage>
     return false; // Never allow exiting the app with back button
   }
 
-  void _showAppOptions(
-      BuildContext context, AppInfo application, bool isPinned) async {
+  void _showAppOptions(BuildContext context, AppInfo application, bool isPinned,
+      {VoidCallback? onAppRemoved}) async {
     bool? isSystemAppResult =
         await InstalledApps.isSystemApp(application.packageName);
     bool isSystemApp = isSystemAppResult ?? true;
     bool isHidden = _hiddenApps.contains(application.packageName);
+    Folder? parentFolder;
+    try {
+      parentFolder = _folders.firstWhere(
+          (f) => f.appPackageNames.contains(application.packageName));
+    } catch (e) {
+      parentFolder = null;
+    }
 
     if (context.mounted) {
       showModalBottomSheet(
@@ -711,6 +745,8 @@ class _MyHomePageState extends State<MyHomePage>
                             ),
                             onTap: () async {
                               Navigator.pop(context);
+                              await _restoreAppToFolder(
+                                  application.packageName);
                               setState(() {
                                 _hiddenApps.remove(application.packageName);
                                 _searchController.clear();
@@ -801,6 +837,16 @@ class _MyHomePageState extends State<MyHomePage>
                                 await InstalledApps.uninstallApp(
                                     application.packageName);
 
+                                // Remove from any folder
+                                for (var folder in _folders) {
+                                  if (folder.appPackageNames
+                                      .contains(application.packageName)) {
+                                    folder.appPackageNames
+                                        .remove(application.packageName);
+                                    await AppDatabase.updateFolder(folder);
+                                  }
+                                }
+
                                 // Immediately remove from our database
                                 await AppDatabase.removeApp(
                                     application.packageName);
@@ -870,6 +916,43 @@ class _MyHomePageState extends State<MyHomePage>
                             }
                           },
                         ),
+                        if (parentFolder != null)
+                          ListTile(
+                            leading: Icon(Icons.folder_off_outlined,
+                                color:
+                                    isDarkMode ? Colors.white : Colors.black),
+                            title: Text(
+                              'Remove from Folder',
+                              style: TextStyle(
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black),
+                            ),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              parentFolder!.appPackageNames
+                                  .remove(application.packageName);
+                              await AppDatabase.updateFolder(parentFolder);
+                              await _loadFolders();
+                              onAppRemoved?.call();
+                            },
+                          )
+                        else if (!isHidden)
+                          ListTile(
+                            leading: Icon(
+                              Icons.folder_open,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                            title: Text(
+                              'Move to Folder',
+                              style: TextStyle(
+                                  color:
+                                      isDarkMode ? Colors.white : Colors.black),
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _showMoveToFolderDialog(application);
+                            },
+                          ),
                       ],
                     ),
                   ),
@@ -880,6 +963,132 @@ class _MyHomePageState extends State<MyHomePage>
         },
       );
     }
+  }
+
+  void _showMoveToFolderDialog(AppInfo app) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Move ${app.name} to...'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _folders.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ListTile(
+                    leading: const Icon(Icons.create_new_folder),
+                    title: const Text('Create new folder'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showCreateFolderDialog(app);
+                    },
+                  );
+                }
+                final folder = _folders[index - 1];
+                return ListTile(
+                  leading: const Icon(Icons.folder),
+                  title: Text(folder.name),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _addAppToFolder(app, folder);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCreateFolderDialog(AppInfo app) {
+    final folderNameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('New Folder'),
+          content: TextField(
+            controller: folderNameController,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Folder name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final folderName = folderNameController.text.trim();
+                if (folderName.isNotEmpty) {
+                  if (_folders.any((f) =>
+                      f.name.toLowerCase() == folderName.toLowerCase())) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text('A folder with this name already exists.')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(context);
+                  // Remove from any existing folder first
+                  int? sourceFolderId;
+                  for (var f in _folders) {
+                    if (f.appPackageNames.contains(app.packageName)) {
+                      sourceFolderId = f.id;
+                      break;
+                    }
+                  }
+                  if (sourceFolderId != null) {
+                    final sourceFolder =
+                        _folders.firstWhere((f) => f.id == sourceFolderId);
+                    sourceFolder.appPackageNames.remove(app.packageName);
+                    await AppDatabase.updateFolder(sourceFolder);
+                  }
+
+                  await AppDatabase.createFolder(folderName, [app.packageName]);
+                  await _loadFolders();
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _addAppToFolder(AppInfo app, Folder folder) async {
+    int? sourceFolderId;
+    // Find which folder the app is in, if any
+    for (var f in _folders) {
+      if (f.appPackageNames.contains(app.packageName)) {
+        sourceFolderId = f.id;
+        break;
+      }
+    }
+
+    // If it's already in the target folder, do nothing.
+    if (sourceFolderId != null && sourceFolderId == folder.id) {
+      return;
+    }
+
+    // If it's in another folder, remove it from there.
+    if (sourceFolderId != null) {
+      final sourceFolder = _folders.firstWhere((f) => f.id == sourceFolderId);
+      sourceFolder.appPackageNames.remove(app.packageName);
+      await AppDatabase.updateFolder(sourceFolder);
+    }
+
+    // Add it to the new folder.
+    folder.appPackageNames.add(app.packageName);
+    await AppDatabase.updateFolder(folder);
+
+    await _loadFolders();
   }
 
   Future<void> _loadAddedWidgets() async {
@@ -1108,16 +1317,28 @@ class _MyHomePageState extends State<MyHomePage>
                       ? AppLayoutSwitcher(
                           key: _appLayoutKey,
                           apps: _apps,
-                          pinnedApps: _pinnedApps
-                              .where((app) =>
-                                  !_hiddenApps.contains(app.packageName))
-                              .toList(), // Filter out hidden apps from pinned apps
+                          folders: const [],
+                          onFoldersChanged: _loadFolders,
+                          pinnedApps: const [],
                           showingHiddenApps: _showingHiddenApps,
-                          onAppLongPress: _showAppOptions,
+                          onAppLongPress: (context, app, isPinned,
+                                  {onAppRemoved}) =>
+                              _showAppOptions(context, app, isPinned,
+                                  onAppRemoved: onAppRemoved),
                           isSelectingAppsToHide: _isSelectingAppsToHide,
                           hiddenApps: _hiddenApps,
                           onAppLaunch: (packageName) async {
-                            await AppUsageTracker.recordAppLaunch(packageName);
+                            if (_hiddenApps.contains(packageName)) {
+                              await _restoreAppToFolder(packageName);
+                              setState(() {
+                                _hiddenApps.remove(packageName);
+                              });
+                            } else {
+                              await _removeAppFromFolderIfHidden(packageName);
+                              setState(() {
+                                _hiddenApps.add(packageName);
+                              });
+                            }
                           },
                           sortType: _appListSortType,
                           notificationCounts: _notificationCounts,
@@ -1264,11 +1485,15 @@ class _MyHomePageState extends State<MyHomePage>
             child: AppLayoutSwitcher(
               key: _appLayoutKey,
               apps: _apps,
+              folders: _folders,
+              onFoldersChanged: _loadFolders,
               pinnedApps: _pinnedApps
                   .where((app) => !_hiddenApps.contains(app.packageName))
                   .toList(), // Filter out hidden apps from pinned apps
               showingHiddenApps: _showingHiddenApps,
-              onAppLongPress: _showAppOptions,
+              onAppLongPress: (context, app, isPinned, {onAppRemoved}) =>
+                  _showAppOptions(context, app, isPinned,
+                      onAppRemoved: onAppRemoved),
               isSelectingAppsToHide: _isSelectingAppsToHide,
               hiddenApps: _hiddenApps,
               onAppLaunch: (packageName) async {
@@ -2199,6 +2424,8 @@ class _MyHomePageState extends State<MyHomePage>
                                 MaterialPageRoute(
                                   builder: (context) => SettingsPage(
                                     isSearchBarAtTop: _isSearchBarAtTop,
+                                    showNotificationBadges:
+                                        _showNotificationBadges,
                                     onSearchBarPositionChanged:
                                         _updateSearchBarPosition,
                                     onNotificationBadgesChanged: (value) {
@@ -2254,6 +2481,20 @@ class _MyHomePageState extends State<MyHomePage>
     _pinnedAppsBackup.addAll(backup);
   }
 
+  Future<void> _loadHiddenAppFolderMap() async {
+    final map = await HiddenAppsManager.loadHiddenAppFolderMap();
+    if (mounted) {
+      setState(() {
+        _hiddenAppFolderMap.clear();
+        _hiddenAppFolderMap.addAll(map);
+      });
+    }
+  }
+
+  Future<void> _saveHiddenAppFolderMap() async {
+    await HiddenAppsManager.saveHiddenAppFolderMap(_hiddenAppFolderMap);
+  }
+
   bool get isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
   void _refreshAppLayout() {
@@ -2280,5 +2521,49 @@ class _MyHomePageState extends State<MyHomePage>
         });
       }
     });
+  }
+
+  Future<void> _restoreAppToFolder(String packageName) async {
+    if (_hiddenAppFolderMap.containsKey(packageName)) {
+      final int? folderId = _hiddenAppFolderMap[packageName];
+      if (folderId == null) {
+        _hiddenAppFolderMap.remove(packageName);
+        await _saveHiddenAppFolderMap();
+        return;
+      }
+      try {
+        final targetFolder = _folders.firstWhere((f) => f.id == folderId);
+        if (!targetFolder.appPackageNames.contains(packageName)) {
+          targetFolder.appPackageNames.add(packageName);
+          await AppDatabase.updateFolder(targetFolder);
+        }
+        _hiddenAppFolderMap.remove(packageName);
+        await _saveHiddenAppFolderMap();
+        await _loadFolders();
+      } catch (e) {
+        _hiddenAppFolderMap.remove(packageName);
+        await _saveHiddenAppFolderMap();
+        debugPrint("Folder with id $folderId not found for app $packageName");
+      }
+    }
+  }
+
+  Future<void> _removeAppFromFolderIfHidden(String packageName) async {
+    Folder? parentFolder;
+    try {
+      parentFolder = _folders.firstWhere(
+        (f) => f.appPackageNames.contains(packageName),
+      );
+    } catch (e) {
+      parentFolder = null;
+    }
+
+    if (parentFolder != null && parentFolder.id != null) {
+      _hiddenAppFolderMap[packageName] = parentFolder.id!;
+      parentFolder.appPackageNames.remove(packageName);
+      await AppDatabase.updateFolder(parentFolder);
+      await _saveHiddenAppFolderMap();
+      await _loadFolders();
+    }
   }
 }

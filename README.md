@@ -1,4 +1,6 @@
-# FLauncher
+# FuseLauncher (Previously FLauncher)
+
+## If you installed FLauncher before the name change, please do a full reinstall, then install FuseLauncher.
 
 A modern, customizable Android launcher built with Flutter that focuses on simplicity and functionality.
 
@@ -55,8 +57,8 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/flauncher.git
-cd flauncher
+git clone https://github.com/nawka12/FuseLauncher.git
+cd FuseLauncher
 ```
 
 2. Install dependencies:

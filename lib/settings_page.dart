@@ -9,6 +9,7 @@ import 'layouts/app_layout_manager.dart';
 class SettingsPage extends StatefulWidget {
   final bool isSearchBarAtTop;
   final Function(bool) onSearchBarPositionChanged;
+  final bool showNotificationBadges;
   final Function(bool) onNotificationBadgesChanged;
   final VoidCallback onLayoutChanged;
 
@@ -16,6 +17,7 @@ class SettingsPage extends StatefulWidget {
     super.key,
     required this.isSearchBarAtTop,
     required this.onSearchBarPositionChanged,
+    required this.showNotificationBadges,
     required this.onNotificationBadgesChanged,
     required this.onLayoutChanged,
   });
@@ -35,16 +37,8 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _currentPosition = widget.isSearchBarAtTop;
-    _loadSettings();
+    _showNotificationBadges = widget.showNotificationBadges;
     _loadLayoutSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _showNotificationBadges =
-          prefs.getBool('show_notification_badges') ?? true;
-    });
   }
 
   Future<void> _loadLayoutSettings() async {
@@ -70,7 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _changeWallpaper(BuildContext context) async {
     try {
-      const platform = MethodChannel('com.kayfahaarukku.flauncher/system');
+      const platform = MethodChannel('com.kayfahaarukku.fuselauncher/system');
       await platform.invokeMethod('changeWallpaper');
     } catch (e) {
       if (context.mounted) {
@@ -475,7 +469,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 title: Text(
-                  'About FLauncher',
+                  'About FuseLauncher',
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

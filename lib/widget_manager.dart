@@ -25,26 +25,28 @@ class WidgetInfo {
     required this.packageName,
     int? currentWidth,
     int? currentHeight,
-  }) : 
-    currentWidth = currentWidth ?? minWidth,
-    currentHeight = currentHeight ?? minHeight;
+  })  : currentWidth = currentWidth ?? minWidth,
+        currentHeight = currentHeight ?? minHeight;
 }
 
 class WidgetManager {
-  static const platform = MethodChannel('com.kayfahaarukku.flauncher/widgets');
+  static const platform =
+      MethodChannel('com.kayfahaarukku.fuselauncher/widgets');
 
   static Future<List<WidgetInfo>> getAvailableWidgets() async {
     try {
       final List<dynamic> result = await platform.invokeMethod('getWidgetList');
-      return result.map((widget) => WidgetInfo(
-        label: widget['label'] ?? 'Unknown Widget',
-        provider: widget['provider'] ?? '',
-        minWidth: widget['minWidth'] ?? 0,
-        minHeight: widget['minHeight'] ?? 0,
-        previewImage: widget['previewImage'] ?? '',
-        appName: widget['appName'] ?? '',
-        packageName: widget['packageName'] ?? '',
-      )).toList();
+      return result
+          .map((widget) => WidgetInfo(
+                label: widget['label'] ?? 'Unknown Widget',
+                provider: widget['provider'] ?? '',
+                minWidth: widget['minWidth'] ?? 0,
+                minHeight: widget['minHeight'] ?? 0,
+                previewImage: widget['previewImage'] ?? '',
+                appName: widget['appName'] ?? '',
+                packageName: widget['packageName'] ?? '',
+              ))
+          .toList();
     } catch (e) {
       if (kDebugMode) {
         print('Error getting widgets: $e');
@@ -55,17 +57,20 @@ class WidgetManager {
 
   static Future<List<WidgetInfo>> getAddedWidgets() async {
     try {
-      final List<dynamic> result = await platform.invokeMethod('getAddedWidgets');
-      return result.map((widget) => WidgetInfo(
-        label: widget['label'] ?? 'Unknown Widget',
-        provider: widget['provider'] ?? '',
-        minWidth: widget['minWidth'] ?? 0,
-        minHeight: widget['minHeight'] ?? 0,
-        previewImage: widget['previewImage'] ?? '',
-        widgetId: widget['widgetId'],
-        appName: widget['appName'] ?? '',
-        packageName: widget['packageName'] ?? '',
-      )).toList();
+      final List<dynamic> result =
+          await platform.invokeMethod('getAddedWidgets');
+      return result
+          .map((widget) => WidgetInfo(
+                label: widget['label'] ?? 'Unknown Widget',
+                provider: widget['provider'] ?? '',
+                minWidth: widget['minWidth'] ?? 0,
+                minHeight: widget['minHeight'] ?? 0,
+                previewImage: widget['previewImage'] ?? '',
+                widgetId: widget['widgetId'],
+                appName: widget['appName'] ?? '',
+                packageName: widget['packageName'] ?? '',
+              ))
+          .toList();
     } catch (e) {
       if (kDebugMode) {
         print('Error getting added widgets: $e');
@@ -161,4 +166,4 @@ class ResizableWidget extends StatelessWidget {
       ),
     );
   }
-} 
+}

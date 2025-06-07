@@ -5,12 +5,14 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import '../models/folder.dart';
 
 class AppDatabase {
   static Database? _database;
   static const String tableName = 'apps';
+  static const String foldersTableName = 'folders';
   static const String iconCacheDirName = 'app_icons';
-  static const int dbVersion = 2; // Increased version for schema changes
+  static const int dbVersion = 4; // Increased version for schema changes
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -20,39 +22,61 @@ class AppDatabase {
 
   static Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'flauncher.db');
+    final path = join(dbPath, 'fuselauncher.db');
 
     return await openDatabase(
       path,
       version: dbVersion,
       onCreate: (db, version) async {
-        await _createTables(db);
+        // Create app table
+        await db.execute('''
+          CREATE TABLE $tableName(
+            packageName TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            version_name TEXT,
+            version_code TEXT,
+            lastUpdated INTEGER NOT NULL
+          )
+        ''');
+
+        // Create indices for frequently queried columns
+        await db.execute('CREATE INDEX idx_name ON $tableName (name)');
+        await db.execute(
+            'CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
+
+        // Create folders table
+        await _createFoldersTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           // Handle migration from v1 to v2
           await _migrateV1ToV2(db);
         }
+        if (oldVersion < 3) {
+          await _createFoldersTable(db);
+        }
+        if (oldVersion < 4) {
+          var tableInfo =
+              await db.rawQuery("PRAGMA table_info($foldersTableName)");
+          bool hasAppPackagesColumn =
+              tableInfo.any((column) => column['name'] == 'app_packages');
+          if (!hasAppPackagesColumn) {
+            await db.execute(
+                "ALTER TABLE $foldersTableName ADD COLUMN app_packages TEXT NOT NULL DEFAULT '[]'");
+          }
+        }
       },
     );
   }
 
-  static Future<void> _createTables(Database db) async {
-    // Create app table without the icon blob
+  static Future<void> _createFoldersTable(Database db) async {
     await db.execute('''
-      CREATE TABLE $tableName(
-        packageName TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS $foldersTableName(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        version_name TEXT,
-        version_code TEXT,
-        lastUpdated INTEGER NOT NULL
+        app_packages TEXT NOT NULL
       )
     ''');
-
-    // Create indices for frequently queried columns
-    await db.execute('CREATE INDEX idx_name ON $tableName (name)');
-    await db
-        .execute('CREATE INDEX idx_lastUpdated ON $tableName (lastUpdated)');
   }
 
   static Future<void> _migrateV1ToV2(Database db) async {
@@ -347,5 +371,49 @@ class AppDatabase {
     } catch (e) {
       debugPrint('Error cleaning up invalid apps: $e');
     }
+  }
+
+  static Future<Folder> createFolder(
+      String name, List<String> packageNames) async {
+    final db = await database;
+    final folder = Folder(name: name, appPackageNames: packageNames);
+    final id = await db.insert(foldersTableName, folder.toMap());
+    folder.id = id;
+    return folder;
+  }
+
+  static Future<List<Folder>> getFolders() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(foldersTableName);
+    return List.generate(maps.length, (i) {
+      return Folder.fromMap(maps[i]);
+    });
+  }
+
+  static Future<void> updateFolder(Folder folder) async {
+    if (folder.id == null) {
+      debugPrint("Cannot update folder with null ID.");
+      return;
+    }
+    final db = await database;
+    await db.update(
+      foldersTableName,
+      folder.toMap(),
+      where: 'id = ?',
+      whereArgs: [folder.id],
+    );
+  }
+
+  static Future<void> deleteFolder(int? id) async {
+    if (id == null) {
+      debugPrint("Cannot delete folder with null ID.");
+      return;
+    }
+    final db = await database;
+    await db.delete(
+      foldersTableName,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

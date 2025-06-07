@@ -4,12 +4,16 @@ import 'app_layout_manager.dart';
 import 'app_list_view.dart';
 import 'app_grid_view.dart';
 import '../sort_options.dart';
+import '../models/folder.dart';
 
 class AppLayoutSwitcher extends StatefulWidget {
   final List<AppInfo> apps;
+  final List<Folder> folders;
   final List<AppInfo> pinnedApps;
+  final VoidCallback onFoldersChanged;
   final bool showingHiddenApps;
-  final Function(BuildContext, AppInfo, bool) onAppLongPress;
+  final Function(BuildContext, AppInfo, bool, {VoidCallback? onAppRemoved})
+      onAppLongPress;
   final bool isSelectingAppsToHide;
   final List<String> hiddenApps;
   final void Function(String) onAppLaunch;
@@ -23,6 +27,8 @@ class AppLayoutSwitcher extends StatefulWidget {
   const AppLayoutSwitcher({
     super.key,
     required this.apps,
+    required this.folders,
+    required this.onFoldersChanged,
     required this.pinnedApps,
     required this.showingHiddenApps,
     required this.onAppLongPress,
@@ -102,6 +108,8 @@ class _AppLayoutSwitcherState extends State<AppLayoutSwitcher> {
         _currentLayout == AppLayoutType.list
             ? AppListView(
                 apps: widget.apps,
+                folders: widget.folders,
+                onFoldersChanged: widget.onFoldersChanged,
                 pinnedApps: widget.pinnedApps,
                 showingHiddenApps: widget.showingHiddenApps,
                 onAppLongPress: widget.onAppLongPress,
@@ -115,6 +123,8 @@ class _AppLayoutSwitcherState extends State<AppLayoutSwitcher> {
               )
             : AppGridView(
                 apps: widget.apps,
+                folders: widget.folders,
+                onFoldersChanged: widget.onFoldersChanged,
                 pinnedApps: widget.pinnedApps,
                 showingHiddenApps: widget.showingHiddenApps,
                 onAppLongPress: widget.onAppLongPress,

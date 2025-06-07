@@ -1,18 +1,26 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
+
 import '../app_sections.dart';
-import 'app_layout_manager.dart';
-import 'dart:async';
-import '../sort_options.dart';
 import '../database/app_database.dart';
+import '../models/folder.dart';
+import '../sort_options.dart';
+import '../widgets/folder_widget.dart';
+import 'app_layout_manager.dart';
 
 class AppGridView extends StatefulWidget {
   final List<AppInfo> apps;
+  final List<Folder> folders;
   final List<AppInfo> pinnedApps;
   final bool showingHiddenApps;
-  final Function(BuildContext, AppInfo, bool) onAppLongPress;
+  final Function(BuildContext, AppInfo, bool, {VoidCallback? onAppRemoved})
+      onAppLongPress;
+  final VoidCallback onFoldersChanged;
   final bool isSelectingAppsToHide;
   final List<String> hiddenApps;
   final void Function(String) onAppLaunch;
@@ -24,9 +32,11 @@ class AppGridView extends StatefulWidget {
   const AppGridView({
     super.key,
     required this.apps,
+    required this.folders,
     required this.pinnedApps,
     required this.showingHiddenApps,
     required this.onAppLongPress,
+    required this.onFoldersChanged,
     required this.isSelectingAppsToHide,
     required this.hiddenApps,
     required this.onAppLaunch,
@@ -45,27 +55,22 @@ class _AppGridViewState extends State<AppGridView> {
   final Map<String, Uint8List> _iconCache = {};
   final int _maxCacheSize = 50;
   final ScrollController _scrollController = ScrollController();
-  String? _currentSection;
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
+  String? _currentSection;
 
   @override
   void initState() {
     super.initState();
     _loadColumnCount();
     _scrollController.addListener(_scrollListener);
-
-    // Add listener to search controller to force rebuild when text changes
     widget.searchController.addListener(_onSearchChanged);
   }
 
   @override
   void didUpdateWidget(AppGridView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reload column count when widget updates
     _loadColumnCount();
-
-    // Update search controller listener if the controller has changed
     if (widget.searchController != oldWidget.searchController) {
       oldWidget.searchController.removeListener(_onSearchChanged);
       widget.searchController.addListener(_onSearchChanged);
@@ -81,80 +86,58 @@ class _AppGridViewState extends State<AppGridView> {
   }
 
   void _scrollListener() {
-    if (_scrollController.hasClients) {
-      // Update scrolling state
-      if (!_isScrolling) {
+    if (!_isScrolling) {
+      setState(() {
+        _isScrolling = true;
+      });
+    }
+    _scrollEndTimer?.cancel();
+    _scrollEndTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
         setState(() {
-          _isScrolling = true;
+          _isScrolling = false;
         });
       }
+    });
 
-      // Reset timer on each scroll event
-      _scrollEndTimer?.cancel();
-      _scrollEndTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) {
+    final sections = AppSectionManager.createSections(_filteredApps);
+    if (sections.isEmpty) return;
+
+    double offset = 0;
+    if (!widget.showingHiddenApps &&
+        widget.pinnedApps.isNotEmpty &&
+        widget.searchController.text.isEmpty) {
+      final pinnedRowCount = (widget.pinnedApps.length / _columnCount).ceil();
+      offset += 40.0 + (pinnedRowCount * 120.0) + 20.0;
+    }
+
+    if (!widget.showingHiddenApps &&
+        widget.folders.isNotEmpty &&
+        widget.searchController.text.isEmpty) {
+      final folderRowCount = (widget.folders.length / _columnCount).ceil();
+      offset += 40.0 + (folderRowCount * 120.0) + 20.0;
+    }
+
+    for (final section in sections) {
+      final sectionHeight =
+          60.0 + ((section.apps.length / _columnCount).ceil() * 120.0);
+      if (_scrollController.offset >= offset &&
+          _scrollController.offset < offset + sectionHeight) {
+        if (_currentSection != section.letter) {
           setState(() {
-            _isScrolling = false;
+            _currentSection = section.letter;
           });
+          HapticFeedback.selectionClick();
         }
-      });
-
-      // Get all section headers from the screen
-      final sections = AppSectionManager.createSections(_filteredApps);
-      if (sections.isEmpty) return;
-
-      // Approximate check for which section is most visible
-      final scrollPosition = _scrollController.position.pixels;
-
-      // Calculate the approximate position of each section
-      double sectionPosition = 0;
-      double itemHeight = 120.0; // Approximate height of a grid item
-      double sectionHeaderHeight =
-          60.0; // Approximate height of a section header
-
-      String? visibleSection;
-      double pinnedSectionHeight = 0;
-
-      // Account for pinned apps section if it exists
-      if (!widget.showingHiddenApps &&
-          widget.pinnedApps.isNotEmpty &&
-          widget.searchController.text.isEmpty) {
-        int pinnedRowCount = (widget.pinnedApps.length / _columnCount).ceil();
-        pinnedSectionHeight = 40.0 +
-            (pinnedRowCount * itemHeight) +
-            20.0; // Header + items + divider
-        sectionPosition += pinnedSectionHeight;
+        break;
       }
-
-      // Find which section is most visible
-      for (var i = 0; i < sections.length; i++) {
-        final section = sections[i];
-        final sectionStart = sectionPosition;
-        int rowCount = (section.apps.length / _columnCount).ceil();
-        final sectionHeight = sectionHeaderHeight + (rowCount * itemHeight);
-        sectionPosition += sectionHeight;
-
-        // Check if we're in this section's range
-        if (scrollPosition >= sectionStart &&
-            scrollPosition < sectionPosition) {
-          visibleSection = section.letter;
-          break;
-        }
-      }
-
-      // Trigger haptic feedback when section changes
-      if (visibleSection != null && visibleSection != _currentSection) {
-        HapticFeedback.selectionClick();
-        _currentSection = visibleSection;
-      }
+      offset += sectionHeight;
     }
   }
 
   void _onSearchChanged() {
     if (mounted) {
-      setState(() {
-        // Just force a rebuild when search text changes
-      });
+      setState(() {});
     }
   }
 
@@ -168,641 +151,483 @@ class _AppGridViewState extends State<AppGridView> {
   }
 
   List<AppInfo> get _filteredApps {
-    List<AppInfo> apps;
+    final allAppsInFolders =
+        widget.folders.expand((folder) => folder.appPackageNames).toSet();
+    final query = widget.searchController.text.toLowerCase();
+
+    List<AppInfo> appsToShow;
 
     if (widget.isSelectingAppsToHide) {
-      // When selecting apps to hide, show all apps except system apps
-      apps = List<AppInfo>.from(widget.apps)
-        ..sort(
-            (a, b) => (a.name).toLowerCase().compareTo((b.name).toLowerCase()));
-
-      // Apply search filter if query exists
-      final query = widget.searchController.text.toLowerCase();
-      if (query.isNotEmpty) {
-        apps = apps
-            .where((app) => (app.name.toLowerCase().contains(query)))
-            .toList();
-      }
-      return apps;
+      appsToShow = widget.apps;
+    } else if (widget.showingHiddenApps) {
+      appsToShow = widget.apps
+          .where((app) => widget.hiddenApps.contains(app.packageName))
+          .toList();
     } else {
-      // Normal app list filtering
-      apps = widget.showingHiddenApps
-          ? widget.apps
-              .where((app) => widget.hiddenApps.contains(app.packageName))
-              .toList()
-          : widget.apps
-              .where((app) => !widget.hiddenApps.contains(app.packageName))
-              .toList();
-
-      // Apply sort type
-      switch (widget.sortType) {
-        case AppListSortType.alphabeticalAsc:
-          apps.sort(
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-          break;
-        case AppListSortType.alphabeticalDesc:
-          apps.sort(
-              (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
-          break;
-        case AppListSortType.usage:
-          // Leave as is, will be sorted by usage later
-          break;
-      }
-
-      final query = widget.searchController.text.toLowerCase();
-      if (query.isEmpty) return apps;
-
-      return apps
-          .where((app) => (app.name.toLowerCase().contains(query)))
+      appsToShow = widget.apps
+          .where((app) =>
+              !widget.hiddenApps.contains(app.packageName) &&
+              (query.isNotEmpty || !allAppsInFolders.contains(app.packageName)))
           .toList();
     }
+
+    // Apply sort type, except usage which is pre-sorted
+    if (widget.sortType == AppListSortType.alphabeticalAsc) {
+      appsToShow
+          .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (widget.sortType == AppListSortType.alphabeticalDesc) {
+      appsToShow
+          .sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+    }
+
+    if (query.isNotEmpty) {
+      appsToShow = appsToShow
+          .where((app) => app.name.toLowerCase().contains(query))
+          .toList();
+    }
+    return appsToShow;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = AppSectionManager.createSections(_filteredApps,
+        sortType: widget.sortType);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final showFolders = !widget.showingHiddenApps &&
+        widget.folders.isNotEmpty &&
+        widget.searchController.text.isEmpty;
+    final showPinned = !widget.showingHiddenApps &&
+        widget.pinnedApps.isNotEmpty &&
+        widget.searchController.text.isEmpty;
+
+    final scrollbarTheme = Theme.of(context).copyWith(
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.all(Colors.white.withAlpha(77)),
+        radius: const Radius.circular(10.0),
+        thickness: WidgetStateProperty.all(6.0),
+        interactive: true,
+      ),
+    );
+
+    return Theme(
+      data: scrollbarTheme,
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: _isScrolling,
+        interactive: true,
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            if (showPinned) ...[
+              _buildSectionHeader('Pinned Apps', isDarkMode),
+              _buildPinnedAppsGrid(),
+              if (showFolders) const SliverToBoxAdapter(child: Divider()),
+            ],
+            if (showFolders) ...[
+              _buildSectionHeader('Folders', isDarkMode),
+              _buildFolderGrid(),
+              const SliverToBoxAdapter(child: Divider()),
+            ],
+            if (widget.searchController.text.isNotEmpty)
+              _buildAppSearchGrid(_filteredApps)
+            else
+              ..._buildAppSections(sections, isDarkMode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, bool isDarkMode) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
+        ),
+      ),
+    );
+  }
+
+  SliverPadding _buildFolderGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.all(16.0),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _columnCount,
+          crossAxisSpacing: 16.0,
+          mainAxisSpacing: 16.0,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final folder = widget.folders[index];
+            return FolderWidget(
+              folder: folder,
+              onTap: () => _showFolderAppsDialog(folder),
+              onLongPress: () => _showFolderOptionsDialog(folder),
+            );
+          },
+          childCount: widget.folders.length,
+        ),
+      ),
+    );
+  }
+
+  SliverPadding _buildPinnedAppsGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.all(16.0),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _columnCount,
+          crossAxisSpacing: 16.0,
+          mainAxisSpacing: 16.0,
+          childAspectRatio: 0.8,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildAppIcon(widget.pinnedApps[index]),
+          childCount: widget.pinnedApps.length,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildAppSections(List<AppSection> sections, bool isDarkMode) {
+    return sections.expand((section) {
+      return [
+        _buildSectionHeader(section.letter, isDarkMode),
+        SliverPadding(
+          padding: const EdgeInsets.all(16.0),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _columnCount,
+              crossAxisSpacing: 16.0,
+              mainAxisSpacing: 16.0,
+              childAspectRatio: 0.8,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildAppIcon(section.apps[index]),
+              childCount: section.apps.length,
+            ),
+          ),
+        ),
+      ];
+    }).toList();
+  }
+
+  SliverPadding _buildAppSearchGrid(List<AppInfo> apps) {
+    return SliverPadding(
+      padding: const EdgeInsets.all(16.0),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _columnCount,
+          crossAxisSpacing: 16.0,
+          mainAxisSpacing: 16.0,
+          childAspectRatio: 0.8,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _buildAppIcon(apps[index]),
+          childCount: apps.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppIcon(AppInfo application) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isPinned = widget.pinnedApps
+        .any((app) => app.packageName == application.packageName);
+    final isSelectedToHide = widget.isSelectingAppsToHide &&
+        widget.hiddenApps.contains(application.packageName);
+
+    return InkWell(
+      onTap: () {
+        widget.onAppLaunch(application.packageName);
+        if (!widget.isSelectingAppsToHide) {
+          InstalledApps.startApp(application.packageName);
+        }
+      },
+      onLongPress: () => widget.onAppLongPress(context, application, isPinned),
+      borderRadius: BorderRadius.circular(16.0),
+      child: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildIconWithBadge(application, isDarkMode),
+                const SizedBox(height: 8.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Text(
+                    application.name,
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isSelectedToHide)
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.check_circle,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconWithBadge(AppInfo application, bool isDarkMode) {
+    final hasNotifications = widget.showNotificationBadges &&
+        widget.notificationCounts.containsKey(application.packageName) &&
+        widget.notificationCounts[application.packageName]! > 0;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        FutureBuilder<Uint8List?>(
+          future: _loadAppIcon(application.packageName),
+          builder: (context, snapshot) {
+            return Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12.0),
+                image: (snapshot.data != null)
+                    ? DecorationImage(
+                        image: MemoryImage(snapshot.data!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: (snapshot.data == null)
+                  ? const Icon(Icons.apps, size: 30)
+                  : null,
+            );
+          },
+        ),
+        if (hasNotifications)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.red,
+              ),
+              child: Text(
+                widget.notificationCounts[application.packageName].toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Future<Uint8List?> _loadAppIcon(String packageName) async {
     if (_iconCache.containsKey(packageName)) {
       return _iconCache[packageName];
     }
-
-    try {
-      // First try to load from database cache
-      final iconData = await AppDatabase.loadIconFromCache(packageName);
-      if (iconData != null) {
-        // Manage cache size
-        if (_iconCache.length >= _maxCacheSize) {
-          _iconCache.remove(_iconCache.keys.first);
-        }
-        _iconCache[packageName] = iconData;
-        return iconData;
+    final iconData = await AppDatabase.loadIconFromCache(packageName);
+    if (iconData != null) {
+      if (_iconCache.length > _maxCacheSize) {
+        _iconCache.remove(_iconCache.keys.first);
       }
-
-      // Fallback to loading from app if not in cache
-      final app =
-          widget.apps.firstWhere((app) => app.packageName == packageName);
-      if (app.icon != null) {
-        // Manage cache size
-        if (_iconCache.length >= _maxCacheSize) {
-          _iconCache.remove(_iconCache.keys.first);
-        }
-        _iconCache[packageName] = app.icon!;
-        return app.icon;
-      }
-    } catch (e) {
-      debugPrint('Error loading icon: $e');
+      _iconCache[packageName] = iconData;
     }
-    return null;
+    return iconData;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    // For selection mode, we'll use a simple grid
-    if (widget.isSelectingAppsToHide) {
-      return Scrollbar(
-        thumbVisibility: _isScrolling,
-        interactive: true,
-        thickness: 6.0,
-        radius: const Radius.circular(10.0),
-        child: ScrollConfiguration(
-          behavior: AppScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics()),
-          ),
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            controller: _scrollController,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _columnCount,
-              childAspectRatio: 1.0,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: _filteredApps.length,
-            itemBuilder: (context, index) {
-              final app = _filteredApps[index];
-              final isHidden = widget.hiddenApps.contains(app.packageName);
-
-              return InkWell(
-                onTap: () {
-                  // Toggle hidden status
-                  if (isHidden) {
-                    if (widget.hiddenApps.contains(app.packageName)) {
-                      widget.hiddenApps.remove(app.packageName);
-                    }
-                  } else {
-                    if (!widget.hiddenApps.contains(app.packageName)) {
-                      widget.hiddenApps.add(app.packageName);
-                    }
-                  }
-                  setState(() {});
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  height: double.infinity,
-                  width: double.infinity,
-                  padding: const EdgeInsets.only(top: 6, bottom: 6),
-                  child: Container(
-                    margin: const EdgeInsets.all(1),
-                    child: Stack(
-                      children: [
-                        SizedBox(
-                          height: 88, // Reduced from 90
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: _getIconSize(),
-                                height: _getIconSize(),
-                                decoration: BoxDecoration(
-                                  color:
-                                      (isDarkMode ? Colors.white : Colors.black)
-                                          .withAlpha(26),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color.fromARGB(26, 0, 0, 0),
-                                      blurRadius: 3,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: app.icon != null
-                                      ? Image.memory(app.icon!)
-                                      : Icon(
-                                          Icons.android,
-                                          color: isDarkMode
-                                              ? Colors.white
-                                              : Colors.black54,
-                                          size: 20,
-                                        ),
-                                ),
+  void _showFolderAppsDialog(Folder folder) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: Text(folder.name),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: GridView.builder(
+                shrinkWrap: true,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _columnCount,
+                  crossAxisSpacing: 16.0,
+                  mainAxisSpacing: 16.0,
+                  childAspectRatio: 0.8,
+                ),
+                itemCount: folder.apps.length,
+                itemBuilder: (context, index) {
+                  final app = folder.apps[index];
+                  return InkWell(
+                    onTap: () {
+                      widget.onAppLaunch(app.packageName);
+                      InstalledApps.startApp(app.packageName);
+                    },
+                    onLongPress: () => widget
+                        .onAppLongPress(context, app, false, onAppRemoved: () {
+                      setState(() {
+                        folder.apps.remove(app);
+                      });
+                    }),
+                    borderRadius: BorderRadius.circular(16.0),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildIconWithBadge(app,
+                              Theme.of(context).brightness == Brightness.dark),
+                          const SizedBox(height: 8.0),
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: Text(
+                              app.name,
+                              style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black,
+                                fontSize: 12,
                               ),
-                              const SizedBox(height: 1), // Reduced from 2
-                              SizedBox(
-                                height: 28, // Reduced from 30
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 2), // Reduced from 3
-                                  child: Text(
-                                    _formatAppName(app.name),
-                                    style: TextStyle(
-                                      color: isDarkMode
-                                          ? Colors.white
-                                          : Colors.black,
-                                      fontSize: 10.5, // Reduced from 11
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          top: 0,
-                          right: 2,
-                          child: Icon(
-                            isHidden
-                                ? Icons.check_circle
-                                : Icons.check_circle_outline,
-                            color: isHidden
-                                ? Colors.red
-                                : Colors.grey.withAlpha(150),
-                            size: 22,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    }
-
-    // Regular grid view with sections
-    return Theme(
-      data: Theme.of(context).copyWith(
-        scrollbarTheme: ScrollbarThemeData(
-          thumbColor: WidgetStateProperty.all(Colors.white.withAlpha(77)),
-          radius: const Radius.circular(10.0),
-          thickness: WidgetStateProperty.all(6.0),
-          interactive: true,
-        ),
-      ),
-      child: Scrollbar(
-        thumbVisibility: _isScrolling,
-        interactive: true,
-        controller: _scrollController,
-        child: ScrollConfiguration(
-          behavior: AppScrollBehavior().copyWith(
-            physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics()),
-          ),
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              // Pinned apps section
-              if (!widget.showingHiddenApps &&
-                  widget.pinnedApps.isNotEmpty &&
-                  widget.searchController.text.isEmpty) ...[
-                SliverToBoxAdapter(
-                  child: _buildPinnedAppsHeader(),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _columnCount,
-                      childAspectRatio: 1.0,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final app = widget.pinnedApps[index];
-                        return _buildAppGridItem(app, true);
-                      },
-                      childCount: widget.pinnedApps.length,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Divider(color: Colors.white24),
-                  ),
-                ),
-              ],
-
-              // Regular apps
-              ...AppSectionManager.createSections(
-                _filteredApps,
-                sortType: widget.sortType,
-              ).expand((section) => [
-                    SliverToBoxAdapter(
-                      child: _buildSectionHeader(section.letter),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverGrid(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: _columnCount,
-                          childAspectRatio: 1.0,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final app = section.apps[index];
-                            return _buildAppGridItem(app, false);
-                          },
-                          childCount: section.apps.length,
-                        ),
-                      ),
-                    ),
-                  ]),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppGridItem(AppInfo app, bool isPinned) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final hasNotifications = widget.showNotificationBadges &&
-        widget.notificationCounts.containsKey(app.packageName) &&
-        widget.notificationCounts[app.packageName]! > 0;
-
-    return InkWell(
-      onTap: () async {
-        HapticFeedback.selectionClick();
-        await InstalledApps.startApp(app.packageName);
-        widget.onAppLaunch(app.packageName);
-      },
-      onLongPress: () {
-        widget.onAppLongPress(context, app, isPinned);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: Container(
-          margin: const EdgeInsets.all(1),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                height: 88, // Reduced from 90
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: _getIconSize(),
-                      height: _getIconSize(),
-                      decoration: BoxDecoration(
-                        color: (isDarkMode ? Colors.white : Colors.black)
-                            .withAlpha(26),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color.fromARGB(26, 0, 0, 0),
-                            blurRadius: 3,
-                            offset: const Offset(0, 1),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: FutureBuilder<Uint8List?>(
-                          future: _loadAppIcon(app.packageName),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData && snapshot.data != null) {
-                              return Padding(
-                                padding: EdgeInsets.all(_getIconPadding()),
-                                child: Image.memory(
-                                  snapshot.data!,
-                                  width:
-                                      _getIconSize() - (_getIconPadding() * 2),
-                                  height:
-                                      _getIconSize() - (_getIconPadding() * 2),
-                                  fit: BoxFit.contain,
-                                ),
-                              );
-                            }
-                            return Icon(
-                              Icons.android,
-                              color:
-                                  isDarkMode ? Colors.white70 : Colors.black54,
-                              size: 24,
-                            );
-                          },
-                        ),
-                      ),
                     ),
-                    const SizedBox(height: 1), // Reduced from 2
-                    SizedBox(
-                      height: 28, // Reduced from 30
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 2), // Reduced from 3
-                        child: Text(
-                          _formatAppName(app.name),
-                          style: TextStyle(
-                            color: isDarkMode ? Colors.white : Colors.black,
-                            fontSize: 10.5, // Reduced from 11
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-              if (hasNotifications)
-                Positioned(
-                  top: _getNotificationBadgeHeight(),
-                  right: _getNotificationBadgePosition(),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  void _showFolderOptionsDialog(Folder folder) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Folder Options'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Rename'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showRenameFolderDialog(folder);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Folder'),
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Folder'),
+                      content: Text(
+                          'Are you sure you want to delete the "${folder.name}" folder? The apps inside will be moved to the main app list.'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete',
+                                style: TextStyle(color: Colors.red))),
+                      ],
                     ),
-                    padding: EdgeInsets.all(_getNotificationBadgePadding()),
-                    child: Text(
-                      widget.notificationCounts[app.packageName].toString(),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: _getNotificationBadgeFontSize(),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+                  );
+                  if (confirmed == true) {
+                    await AppDatabase.deleteFolder(folder.id);
+                    Navigator.pop(context);
+                    widget.onFoldersChanged();
+                  }
+                },
+              ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  String _formatAppName(String name) {
-    // If name is already short enough, return it as is
-    if (name.length <= 12) {
-      return name;
-    }
-
-    // Check if the name contains spaces to determine where to split
-    final words = name.split(' ');
-
-    // If it's a single long word or very few words, simply truncate
-    if (words.length <= 1 || words.where((w) => w.length > 7).isNotEmpty) {
-      return '${name.substring(0, 10)}..';
-    }
-
-    // For multiple words, try to keep complete words
-    String result = '';
-    for (var word in words) {
-      if ((result + word).length <= 10) {
-        result += result.isEmpty ? word : ' $word';
-      } else {
-        break;
-      }
-    }
-
-    return '$result..';
-  }
-
-  Widget _buildSectionHeader(String letter) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: isDarkMode
-                  ? const Color.fromARGB(
-                      51, 103, 80, 164) // 0.2 opacity (51/255)
-                  : const Color.fromARGB(
-                      26, 103, 80, 164), // 0.1 opacity (26/255)
-              borderRadius: BorderRadius.circular(18),
+  void _showRenameFolderDialog(Folder folder) {
+    final controller = TextEditingController(text: folder.name);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename Folder'),
+          content: TextField(controller: controller),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
-            child: Center(
-              child: Text(
-                letter,
-                style: TextStyle(
-                  color: isDarkMode
-                      ? const Color(0xFFD0BCFF)
-                      : const Color(0xFF6750A4),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            TextButton(
+              onPressed: () async {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty) {
+                  if (widget.folders.any((f) =>
+                      f.id != folder.id &&
+                      f.name.toLowerCase() == newName.toLowerCase())) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text('A folder with this name already exists.')),
+                    );
+                    return;
+                  }
+                  folder.name = newName;
+                  await AppDatabase.updateFolder(folder);
+                  Navigator.pop(context);
+                  widget.onFoldersChanged();
+                }
+              },
+              child: const Text('Rename'),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: isDarkMode
-                  ? const Color.fromARGB(
-                      26, 255, 255, 255) // 0.1 opacity (26/255)
-                  : const Color.fromARGB(13, 0, 0, 0), // 0.05 opacity (13/255)
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
-  }
-
-  Widget _buildPinnedAppsHeader() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  isDarkMode ? const Color(0xFF2D2D2D) : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Pinned Apps',
-              style: TextStyle(
-                color: isDarkMode
-                    ? const Color.fromARGB(
-                        230, 255, 255, 255) // 0.9 opacity (230/255)
-                    : const Color.fromARGB(
-                        204, 0, 0, 0), // 0.8 opacity (204/255)
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _getNotificationBadgePosition() {
-    // Adjust badge position based on column count
-    switch (_columnCount) {
-      case 2:
-        return 58.0; // Wider items, badge further right
-      case 3:
-        return 25.0; // Medium items
-      case 5:
-        return 14.0; // Narrower items
-      case 6:
-        return 12.0; // Very narrow items
-      case 4:
-      default:
-        return 18.0; // Default for 4 columns
-    }
-  }
-
-  double _getNotificationBadgeHeight() {
-    // Adjust badge position based on column count
-    switch (_columnCount) {
-      case 2:
-        return 38.0; // Wider items, badge further right
-      case 3:
-        return 8.0; // Medium items
-      case 5:
-        return -1.0; // Narrower items
-      case 6:
-        return 0.0; // Very narrow items
-      case 4:
-      default:
-        return 0.0; // Default for 4 columns
-    }
-  }
-
-  double _getNotificationBadgePadding() {
-    // Adjust padding based on column count
-    switch (_columnCount) {
-      case 2:
-        return 4.0; // Wider items, more padding
-      case 3:
-        return 3.5; // Medium items
-      case 5:
-        return 2.5; // Narrower items
-      case 6:
-        return 2.0; // Very narrow items
-      case 4:
-      default:
-        return 3.0; // Default for 4 columns
-    }
-  }
-
-  double _getNotificationBadgeFontSize() {
-    // Adjust font size based on column count
-    switch (_columnCount) {
-      case 2:
-        return 12.0; // Wider items, larger font
-      case 3:
-        return 11.0; // Medium items
-      case 5:
-        return 9.5; // Narrower items
-      case 6:
-        return 8.0; // Very narrow items
-      case 4:
-      default:
-        return 10.0; // Default for 4 columns
-    }
-  }
-
-  double _getIconSize() {
-    // Adjust icon size based on column count
-    switch (_columnCount) {
-      case 2:
-        return 59.0; // Wider items, larger icon
-      case 3:
-        return 59.0; // Medium items
-      case 5:
-        return 31.0; // Narrower items
-      case 6:
-        return 18.0; // Very narrow items
-      case 4:
-      default:
-        return 50.0; // Default for 4 columns
-    }
-  }
-
-  double _getIconPadding() {
-    // Adjust icon padding based on column count
-    switch (_columnCount) {
-      case 2:
-        return 2.0; // Wider items, more padding
-      case 3:
-        return 1.5; // Medium items
-      case 5:
-        return 1.0; // Narrower items
-      case 6:
-        return 0.5; // Very narrow items
-      case 4:
-      default:
-        return 2.0; // Default for 4 columns
-    }
   }
 }
