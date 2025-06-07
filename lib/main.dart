@@ -172,8 +172,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
-  late final ScrollController _scrollController = ScrollController()
-    ..addListener(_smoothScrollListener);
+  late final ScrollController _scrollController = ScrollController();
   final ScrollController _widgetsScrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _hiddenAppsSearchController =
@@ -208,6 +207,8 @@ class _MyHomePageState extends State<MyHomePage>
   Key _appLayoutKey = UniqueKey();
   bool _isWidgetsScrolling = false;
   Timer? _widgetsScrollEndTimer;
+  bool _isAppsScrolling = false;
+  Timer? _appsScrollEndTimer;
 
   @override
   void initState() {
@@ -278,6 +279,7 @@ class _MyHomePageState extends State<MyHomePage>
       return null;
     });
     _widgetsScrollController.addListener(_widgetsScrollListener);
+    _scrollController.addListener(_appsScrollListener);
   }
 
   Future<void> _loadFolders() async {
@@ -294,10 +296,56 @@ class _MyHomePageState extends State<MyHomePage>
           .whereType<AppInfo>()
           .toList();
     }
+
+    // Sort folders based on current sort type
+    _sortFolders(folders, _appListSortType);
+
     if (mounted) {
       setState(() {
         _folders = folders;
       });
+    }
+  }
+
+  void _sortFolders(List<Folder> folders, AppListSortType sortType) {
+    switch (sortType) {
+      case AppListSortType.alphabeticalAsc:
+        folders.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case AppListSortType.alphabeticalDesc:
+        folders.sort(
+            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case AppListSortType.usage:
+        // For usage-based sorting, sort by the highest priority app in each folder
+        folders.sort((a, b) {
+          // Find the highest priority (lowest index) app in each folder
+          int getHighestPriorityIndex(Folder folder) {
+            if (folder.apps.isEmpty) return 999999;
+
+            int highestPriority = 999999;
+            for (var app in folder.apps) {
+              final index =
+                  _apps.indexWhere((a) => a.packageName == app.packageName);
+              if (index != -1 && index < highestPriority) {
+                highestPriority = index;
+              }
+            }
+            return highestPriority;
+          }
+
+          final aPriority = getHighestPriorityIndex(a);
+          final bPriority = getHighestPriorityIndex(b);
+
+          // If both folders have no valid apps, sort alphabetically
+          if (aPriority == 999999 && bPriority == 999999) {
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          }
+
+          return aPriority.compareTo(bPriority);
+        });
+        break;
     }
   }
 
@@ -342,7 +390,7 @@ class _MyHomePageState extends State<MyHomePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
-    _scrollController.removeListener(_smoothScrollListener);
+    _scrollController.removeListener(_appsScrollListener);
     _scrollController.dispose();
     _widgetsScrollController.dispose();
     _searchController.dispose();
@@ -350,6 +398,8 @@ class _MyHomePageState extends State<MyHomePage>
     _iconCache.clear();
     _searchFocusNode.dispose();
     NotificationService.dispose();
+    _appsScrollEndTimer?.cancel();
+    _widgetsScrollEndTimer?.cancel();
     super.dispose();
   }
 
@@ -359,9 +409,6 @@ class _MyHomePageState extends State<MyHomePage>
       debugPrint('Loading already in progress, skipping');
       return;
     }
-
-    // Create a timeout timer to prevent stuck loading state
-    Timer? timeoutTimer;
 
     try {
       if (background) {
@@ -373,20 +420,6 @@ class _MyHomePageState extends State<MyHomePage>
           _isLoading = true;
         });
       }
-
-      // Set a timeout that will reset the loading state if it takes too long
-      timeoutTimer = Timer(const Duration(seconds: 15), () {
-        if (!mounted) return;
-
-        debugPrint('App loading timeout - resetting loading state');
-        setState(() {
-          if (background) {
-            _isBackgroundLoading = false;
-          } else {
-            _isLoading = false;
-          }
-        });
-      });
 
       // First try to load from cache - but only if not forcing refresh
       if (!background && !forceRefresh) {
@@ -402,13 +435,18 @@ class _MyHomePageState extends State<MyHomePage>
 
       if (shouldRefresh || background) {
         // If we need to update, do it in the background
-        await _refreshApps();
-      } else {
-        if (mounted) {
-          setState(() {
+        await _refreshAppsInBackground();
+      }
+
+      // Always reset loading state when done
+      if (mounted) {
+        setState(() {
+          if (background) {
             _isBackgroundLoading = false;
-          });
-        }
+          } else {
+            _isLoading = false;
+          }
+        });
       }
     } catch (e) {
       debugPrint('Error loading apps: $e');
@@ -420,9 +458,6 @@ class _MyHomePageState extends State<MyHomePage>
           _isBackgroundLoading = false;
         });
       }
-    } finally {
-      // Cancel the timeout timer if operation completed normally
-      timeoutTimer?.cancel();
     }
   }
 
@@ -451,9 +486,6 @@ class _MyHomePageState extends State<MyHomePage>
       return;
     }
 
-    // Create a timer to ensure loading state doesn't get stuck
-    Timer? timeoutTimer;
-
     try {
       if (mounted) {
         setState(() {
@@ -461,27 +493,15 @@ class _MyHomePageState extends State<MyHomePage>
         });
       }
 
-      // Set a timeout to reset loading state if it takes too long
-      timeoutTimer = Timer(const Duration(seconds: 10), () {
-        if (mounted && _isBackgroundLoading) {
-          debugPrint('App refresh timeout - resetting loading state');
-          setState(() {
-            _isBackgroundLoading = false;
-          });
-        }
-      });
-
       await _refreshAppsInBackground();
     } catch (e) {
       debugPrint('Error in refresh apps: $e');
+    } finally {
       if (mounted) {
         setState(() {
           _isBackgroundLoading = false;
         });
       }
-    } finally {
-      // Cancel the timeout timer if the operation completed normally
-      timeoutTimer?.cancel();
     }
   }
 
@@ -500,11 +520,6 @@ class _MyHomePageState extends State<MyHomePage>
       if (freshApps.isEmpty) {
         // If we still couldn't get apps, don't proceed with updates
         debugPrint('Could not get app list - skipping update');
-        if (mounted) {
-          setState(() {
-            _isBackgroundLoading = false;
-          });
-        }
         return;
       }
 
@@ -566,17 +581,12 @@ class _MyHomePageState extends State<MyHomePage>
           setState(() {
             _appSections = AppSectionManager.createSections(_apps,
                 sortType: _appListSortType);
-            _isBackgroundLoading = false;
           });
         }
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isBackgroundLoading = false;
-        });
-      }
       debugPrint('Error refreshing apps: $e');
+      rethrow; // Let the calling method handle the loading state
     }
   }
 
@@ -871,17 +881,8 @@ class _MyHomePageState extends State<MyHomePage>
                                   });
                                 }
 
-                                // Force refresh app list with a timeout to prevent stuck loading state
+                                // Force refresh app list after uninstall
                                 if (mounted) {
-                                  // Set a timeout to ensure loading indicator is reset
-                                  Timer(const Duration(seconds: 5), () {
-                                    if (mounted && _isBackgroundLoading) {
-                                      setState(() {
-                                        _isBackgroundLoading = false;
-                                      });
-                                    }
-                                  });
-
                                   _loadApps(
                                       background: true, forceRefresh: true);
                                 }
@@ -1316,40 +1317,64 @@ class _MyHomePageState extends State<MyHomePage>
                   ),
                 Expanded(
                   child: _isSelectingAppsToHide
-                      ? AppLayoutSwitcher(
-                          key: _appLayoutKey,
-                          apps: _apps,
-                          folders: const [],
-                          onFoldersChanged: _loadFolders,
-                          pinnedApps: const [],
-                          showingHiddenApps: _showingHiddenApps,
-                          onAppLongPress: (context, app, isPinned,
-                                  {onAppRemoved}) =>
-                              _showAppOptions(context, app, isPinned,
-                                  onAppRemoved: onAppRemoved),
-                          isSelectingAppsToHide: _isSelectingAppsToHide,
-                          hiddenApps: _hiddenApps,
-                          onAppLaunch: (packageName) async {
-                            if (_hiddenApps.contains(packageName)) {
-                              await _restoreAppToFolder(packageName);
-                              setState(() {
-                                _hiddenApps.remove(packageName);
-                              });
-                            } else {
-                              await _removeAppFromFolderIfHidden(packageName);
-                              setState(() {
-                                _hiddenApps.add(packageName);
-                              });
-                            }
-                          },
-                          sortType: _appListSortType,
-                          notificationCounts: _notificationCounts,
-                          showNotificationBadges: _showNotificationBadges,
-                          searchController:
-                              _showingHiddenApps || _isSelectingAppsToHide
-                                  ? _hiddenAppsSearchController
-                                  : _searchController,
-                          isBackgroundLoading: _isBackgroundLoading,
+                      ? Theme(
+                          data: Theme.of(context).copyWith(
+                            canvasColor: Colors.transparent,
+                            scrollbarTheme: ScrollbarThemeData(
+                              thumbColor: WidgetStateProperty.all(
+                                  Colors.white.withAlpha(77)),
+                              radius: const Radius.circular(20),
+                              thickness: WidgetStateProperty.all(6.0),
+                              interactive: true,
+                            ),
+                          ),
+                          child: Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: _isAppsScrolling,
+                            interactive: true,
+                            child: ScrollConfiguration(
+                              behavior: AppScrollBehavior().copyWith(
+                                physics: const BouncingScrollPhysics(
+                                    parent: AlwaysScrollableScrollPhysics()),
+                              ),
+                              child: AppLayoutSwitcher(
+                                key: _appLayoutKey,
+                                apps: _apps,
+                                folders: const [],
+                                onFoldersChanged: _loadFolders,
+                                pinnedApps: const [],
+                                showingHiddenApps: _showingHiddenApps,
+                                onAppLongPress: (context, app, isPinned,
+                                        {onAppRemoved}) =>
+                                    _showAppOptions(context, app, isPinned,
+                                        onAppRemoved: onAppRemoved),
+                                isSelectingAppsToHide: _isSelectingAppsToHide,
+                                hiddenApps: _hiddenApps,
+                                onAppLaunch: (packageName) async {
+                                  if (_hiddenApps.contains(packageName)) {
+                                    await _restoreAppToFolder(packageName);
+                                    setState(() {
+                                      _hiddenApps.remove(packageName);
+                                    });
+                                  } else {
+                                    await _removeAppFromFolderIfHidden(
+                                        packageName);
+                                    setState(() {
+                                      _hiddenApps.add(packageName);
+                                    });
+                                  }
+                                },
+                                sortType: _appListSortType,
+                                notificationCounts: _notificationCounts,
+                                showNotificationBadges: _showNotificationBadges,
+                                searchController:
+                                    _showingHiddenApps || _isSelectingAppsToHide
+                                        ? _hiddenAppsSearchController
+                                        : _searchController,
+                                isBackgroundLoading: _isBackgroundLoading,
+                              ),
+                            ),
+                          ),
                         )
                       : TabBarView(
                           controller: _tabController,
@@ -1484,30 +1509,54 @@ class _MyHomePageState extends State<MyHomePage>
               ),
             ),
           Expanded(
-            child: AppLayoutSwitcher(
-              key: _appLayoutKey,
-              apps: _apps,
-              folders: _folders,
-              onFoldersChanged: _loadFolders,
-              pinnedApps: _pinnedApps
-                  .where((app) => !_hiddenApps.contains(app.packageName))
-                  .toList(), // Filter out hidden apps from pinned apps
-              showingHiddenApps: _showingHiddenApps,
-              onAppLongPress: (context, app, isPinned, {onAppRemoved}) =>
-                  _showAppOptions(context, app, isPinned,
-                      onAppRemoved: onAppRemoved),
-              isSelectingAppsToHide: _isSelectingAppsToHide,
-              hiddenApps: _hiddenApps,
-              onAppLaunch: (packageName) async {
-                await AppUsageTracker.recordAppLaunch(packageName);
-              },
-              sortType: _appListSortType,
-              notificationCounts: _notificationCounts,
-              showNotificationBadges: _showNotificationBadges,
-              searchController: _showingHiddenApps || _isSelectingAppsToHide
-                  ? _hiddenAppsSearchController
-                  : _searchController,
-              isBackgroundLoading: _isBackgroundLoading,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                canvasColor: Colors.transparent,
+                scrollbarTheme: ScrollbarThemeData(
+                  thumbColor:
+                      WidgetStateProperty.all(Colors.white.withAlpha(77)),
+                  radius: const Radius.circular(20),
+                  thickness: WidgetStateProperty.all(6.0),
+                  interactive: true,
+                ),
+              ),
+              child: Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: _isAppsScrolling,
+                interactive: true,
+                child: ScrollConfiguration(
+                  behavior: AppScrollBehavior().copyWith(
+                    physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics()),
+                  ),
+                  child: AppLayoutSwitcher(
+                    key: _appLayoutKey,
+                    apps: _apps,
+                    folders: _folders,
+                    onFoldersChanged: _loadFolders,
+                    pinnedApps: _pinnedApps
+                        .where((app) => !_hiddenApps.contains(app.packageName))
+                        .toList(), // Filter out hidden apps from pinned apps
+                    showingHiddenApps: _showingHiddenApps,
+                    onAppLongPress: (context, app, isPinned, {onAppRemoved}) =>
+                        _showAppOptions(context, app, isPinned,
+                            onAppRemoved: onAppRemoved),
+                    isSelectingAppsToHide: _isSelectingAppsToHide,
+                    hiddenApps: _hiddenApps,
+                    onAppLaunch: (packageName) async {
+                      await AppUsageTracker.recordAppLaunch(packageName);
+                    },
+                    sortType: _appListSortType,
+                    notificationCounts: _notificationCounts,
+                    showNotificationBadges: _showNotificationBadges,
+                    searchController:
+                        _showingHiddenApps || _isSelectingAppsToHide
+                            ? _hiddenAppsSearchController
+                            : _searchController,
+                    isBackgroundLoading: _isBackgroundLoading,
+                  ),
+                ),
+              ),
             ),
           ),
           if (!_isSearchBarAtTop) _buildSearchBar(),
@@ -2113,7 +2162,7 @@ class _MyHomePageState extends State<MyHomePage>
       case AppLifecycleState.resumed:
         // App is in the foreground
         debugPrint('App resumed - refreshing app list');
-        _refreshApps();
+        _loadApps(background: true, forceRefresh: true);
         break;
       case AppLifecycleState.inactive:
         // App is partially obscured, may be entering multitasking
@@ -2239,6 +2288,7 @@ class _MyHomePageState extends State<MyHomePage>
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
                         _apps, AppListSortType.usage);
+                    _sortFolders(_folders, AppListSortType.usage);
                     setState(() {
                       _appListSortType = AppListSortType.usage;
                       _appSections = AppSectionManager.createSections(_apps,
@@ -2260,6 +2310,7 @@ class _MyHomePageState extends State<MyHomePage>
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
                         _apps, AppListSortType.alphabeticalAsc);
+                    _sortFolders(_folders, AppListSortType.alphabeticalAsc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalAsc;
                       _appSections = AppSectionManager.createSections(_apps,
@@ -2281,6 +2332,7 @@ class _MyHomePageState extends State<MyHomePage>
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
                         _apps, AppListSortType.alphabeticalDesc);
+                    _sortFolders(_folders, AppListSortType.alphabeticalDesc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalDesc;
                       _appSections = AppSectionManager.createSections(_apps,
@@ -2299,33 +2351,6 @@ class _MyHomePageState extends State<MyHomePage>
   Future<void> _loadSortTypes() async {
     _appListSortType = await AppUsageTracker.getSavedAppListSortType();
     if (mounted) setState(() {});
-  }
-
-  void _smoothScrollListener() {
-    if (!_scrollController.hasClients) return;
-
-    final position = _scrollController.position.pixels;
-
-    // Calculate current section
-    double currentPos = 0;
-    if (_pinnedApps.isNotEmpty && _searchController.text.isEmpty) {
-      currentPos += 48.0 + (_pinnedApps.length * 72.0) + 16.0 + 48.0;
-    }
-
-    String newSection = '';
-    for (var section in _appSections) {
-      final sectionHeight = 40.0 + (section.apps.length * 72.0);
-      if (position >= currentPos && position < (currentPos + sectionHeight)) {
-        newSection = section.letter;
-        break;
-      }
-      currentPos += sectionHeight;
-    }
-
-    if (newSection != _currentSection) {
-      _currentSection = newSection;
-      HapticFeedback.selectionClick();
-    }
   }
 
   double _getBottomSheetPadding(BuildContext context) {
@@ -2523,6 +2548,51 @@ class _MyHomePageState extends State<MyHomePage>
         });
       }
     });
+  }
+
+  void _appsScrollListener() {
+    // Update scrolling state
+    if (!_isAppsScrolling) {
+      setState(() {
+        _isAppsScrolling = true;
+      });
+    }
+
+    // Reset timer on each scroll event
+    _appsScrollEndTimer?.cancel();
+    _appsScrollEndTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isAppsScrolling = false;
+        });
+      }
+    });
+
+    // Keep the existing smooth scroll listener functionality
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position.pixels;
+
+    // Calculate current section
+    double currentPos = 0;
+    if (_pinnedApps.isNotEmpty && _searchController.text.isEmpty) {
+      currentPos += 48.0 + (_pinnedApps.length * 72.0) + 16.0 + 48.0;
+    }
+
+    String newSection = '';
+    for (var section in _appSections) {
+      final sectionHeight = 40.0 + (section.apps.length * 72.0);
+      if (position >= currentPos && position < (currentPos + sectionHeight)) {
+        newSection = section.letter;
+        break;
+      }
+      currentPos += sectionHeight;
+    }
+
+    if (newSection != _currentSection) {
+      _currentSection = newSection;
+      HapticFeedback.selectionClick();
+    }
   }
 
   Future<void> _restoreAppToFolder(String packageName) async {

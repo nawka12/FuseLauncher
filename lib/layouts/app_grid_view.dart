@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -263,6 +262,7 @@ class _AppGridViewState extends State<AppGridView> {
           crossAxisCount: _columnCount,
           crossAxisSpacing: 16.0,
           mainAxisSpacing: 16.0,
+          childAspectRatio: 0.8,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
@@ -381,7 +381,7 @@ class _AppGridViewState extends State<AppGridView> {
           if (isSelectedToHide)
             Container(
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withAlpha(128),
                 borderRadius: BorderRadius.circular(16.0),
               ),
               child: const Center(
@@ -539,52 +539,160 @@ class _AppGridViewState extends State<AppGridView> {
   }
 
   void _showFolderOptionsDialog(Folder folder) {
-    showDialog(
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
       context: context,
+      backgroundColor:
+          isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      isScrollControlled: true,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Folder Options'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Rename'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showRenameFolderDialog(folder);
-                },
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? const Color(0xFF757575)
+                    : const Color(0xFFBDBDBD),
+                borderRadius: BorderRadius.circular(2),
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete Folder'),
-                onTap: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Delete Folder'),
-                      content: Text(
-                          'Are you sure you want to delete the "${folder.name}" folder? The apps inside will be moved to the main app list.'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel')),
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Delete',
-                                style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await AppDatabase.deleteFolder(folder.id);
-                    Navigator.pop(context);
-                    widget.onFoldersChanged();
-                  }
-                },
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewPadding.bottom + 16.0,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 20),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? const Color(0xFF424242)
+                                    : const Color(0xFFE0E0E0),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.folder,
+                                color: Colors.amber,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    folder.name,
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white
+                                          : Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${folder.apps.length} app${folder.apps.length != 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black54,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.edit,
+                            color: isDarkMode ? Colors.white : Colors.black),
+                        title: Text(
+                          'Rename',
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showRenameFolderDialog(folder);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.delete, color: Colors.red),
+                        title: Text(
+                          'Delete Folder',
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: isDarkMode
+                                  ? const Color(0xFF1E1E1E)
+                                  : Colors.white,
+                              title: Text(
+                                'Delete Folder',
+                                style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black),
+                              ),
+                              content: Text(
+                                  'Are you sure you want to delete the "${folder.name}" folder? The apps inside will be moved to the main app list.',
+                                  style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black87)),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancel')),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Delete',
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            await AppDatabase.deleteFolder(folder.id);
+                            if (!context.mounted) return;
+                            widget.onFoldersChanged();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -619,6 +727,7 @@ class _AppGridViewState extends State<AppGridView> {
                   }
                   folder.name = newName;
                   await AppDatabase.updateFolder(folder);
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   widget.onFoldersChanged();
                 }

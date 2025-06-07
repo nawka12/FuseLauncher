@@ -252,11 +252,11 @@ class _AppListViewState extends State<AppListView> {
   Widget _buildSectionHeader(String title, bool isDarkMode) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         child: Text(
           title,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: isDarkMode ? Colors.white : Colors.black,
           ),
@@ -270,9 +270,34 @@ class _AppListViewState extends State<AppListView> {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final folder = widget.folders[index];
+          final isDarkMode = Theme.of(context).brightness == Brightness.dark;
           return ListTile(
-            leading: const Icon(Icons.folder, color: Colors.amber, size: 40),
-            title: Text(folder.name),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            leading: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(26),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.folder, color: Colors.amber, size: 32),
+            ),
+            title: Text(
+              folder.name,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            subtitle: Text(
+              '${folder.apps.length} app${folder.apps.length != 1 ? 's' : ''}',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+              ),
+            ),
             onTap: () => _showFolderAppsDialog(folder),
             onLongPress: () => _showFolderOptionsDialog(folder),
           );
@@ -301,6 +326,8 @@ class _AppListViewState extends State<AppListView> {
                       widget.notificationCounts.containsKey(app.packageName) &&
                       widget.notificationCounts[app.packageName]! > 0;
                   return ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -308,17 +335,34 @@ class _AppListViewState extends State<AppListView> {
                           future: _loadAppIcon(app.packageName),
                           builder: (context, snapshot) {
                             if (snapshot.hasData && snapshot.data != null) {
-                              return Image.memory(snapshot.data!,
-                                  width: 40, height: 40);
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  snapshot.data!,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                ),
+                              );
                             }
-                            return const SizedBox(
-                                width: 40, height: 40, child: Icon(Icons.apps));
+                            return Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const Color(0xFF424242)
+                                    : const Color(0xFFE0E0E0),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.apps, size: 28),
+                            );
                           },
                         ),
                         if (hasNotifications)
                           Positioned(
-                            top: -4,
-                            right: -4,
+                            top: -6,
+                            right: -6,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
@@ -330,14 +374,24 @@ class _AppListViewState extends State<AppListView> {
                                     .toString(),
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ),
                       ],
                     ),
-                    title: Text(app.name),
+                    title: Text(
+                      app.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black,
+                      ),
+                    ),
                     onTap: () {
                       widget.onAppLaunch(app.packageName);
                       InstalledApps.startApp(app.packageName);
@@ -365,52 +419,160 @@ class _AppListViewState extends State<AppListView> {
   }
 
   void _showFolderOptionsDialog(Folder folder) {
-    showDialog(
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
       context: context,
+      backgroundColor:
+          isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      isScrollControlled: true,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Folder Options'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Rename'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showRenameFolderDialog(folder);
-                },
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? const Color(0xFF757575)
+                    : const Color(0xFFBDBDBD),
+                borderRadius: BorderRadius.circular(2),
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete Folder'),
-                onTap: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Delete Folder'),
-                      content: Text(
-                          'Are you sure you want to delete the "${folder.name}" folder? The apps inside will be moved to the main app list.'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel')),
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Delete',
-                                style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await AppDatabase.deleteFolder(folder.id);
-                    Navigator.pop(context);
-                    widget.onFoldersChanged();
-                  }
-                },
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewPadding.bottom + 16.0,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 20),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? const Color(0xFF424242)
+                                    : const Color(0xFFE0E0E0),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.folder,
+                                color: Colors.amber,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    folder.name,
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white
+                                          : Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${folder.apps.length} app${folder.apps.length != 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black54,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.edit,
+                            color: isDarkMode ? Colors.white : Colors.black),
+                        title: Text(
+                          'Rename',
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showRenameFolderDialog(folder);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.delete, color: Colors.red),
+                        title: Text(
+                          'Delete Folder',
+                          style: TextStyle(
+                              color: isDarkMode ? Colors.white : Colors.black),
+                        ),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: isDarkMode
+                                  ? const Color(0xFF1E1E1E)
+                                  : Colors.white,
+                              title: Text(
+                                'Delete Folder',
+                                style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black),
+                              ),
+                              content: Text(
+                                  'Are you sure you want to delete the "${folder.name}" folder? The apps inside will be moved to the main app list.',
+                                  style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black87)),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancel')),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Delete',
+                                        style: TextStyle(color: Colors.red))),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            await AppDatabase.deleteFolder(folder.id);
+                            if (!context.mounted) return;
+                            widget.onFoldersChanged();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -445,6 +607,7 @@ class _AppListViewState extends State<AppListView> {
                   }
                   folder.name = newName;
                   await AppDatabase.updateFolder(folder);
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   widget.onFoldersChanged();
                 }
@@ -498,6 +661,7 @@ class _AppListViewState extends State<AppListView> {
         widget.hiddenApps.contains(application.packageName);
 
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -505,18 +669,35 @@ class _AppListViewState extends State<AppListView> {
             future: _loadAppIcon(application.packageName),
             builder: (context, snapshot) {
               if (snapshot.hasData && snapshot.data != null) {
-                return Image.memory(snapshot.data!, width: 40, height: 40);
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    snapshot.data!,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                  ),
+                );
               }
-              return const SizedBox(
-                  width: 40, height: 40, child: Icon(Icons.apps));
+              return Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? const Color(0xFF424242)
+                      : const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.apps, size: 28),
+              );
             },
           ),
           if (hasNotifications)
             Positioned(
-              top: -4,
-              right: -4,
+              top: -6,
+              right: -6,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.red,
@@ -525,19 +706,34 @@ class _AppListViewState extends State<AppListView> {
                   widget.notificationCounts[application.packageName].toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
         ],
       ),
-      title: Text(application.name),
+      title: Text(
+        application.name,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w500,
+          color: isDarkMode ? Colors.white : Colors.black,
+        ),
+      ),
       trailing: isSelectedToHide
-          ? Icon(Icons.check_box, color: Theme.of(context).colorScheme.primary)
+          ? Icon(
+              Icons.check_box,
+              color: Theme.of(context).colorScheme.primary,
+              size: 28,
+            )
           : isPinned
-              ? Icon(Icons.push_pin,
-                  color: isDarkMode ? Colors.white70 : Colors.black54)
+              ? Icon(
+                  Icons.push_pin,
+                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                  size: 22,
+                )
               : null,
       onTap: () {
         widget.onAppLaunch(application.packageName);
