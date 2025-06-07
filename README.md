@@ -1,6 +1,6 @@
 # FuseLauncher (Previously FLauncher)
 
-## If you installed FLauncher before the name change, please do a full reinstall, then install FuseLauncher.
+## If you installed FLauncher before the name change, please uninstall FLauncher, then install FuseLauncher.
 
 A modern, customizable Android launcher built with Flutter that focuses on simplicity and functionality.
 
