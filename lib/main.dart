@@ -480,31 +480,6 @@ class _MyHomePageState extends State<MyHomePage>
     }
   }
 
-  Future<void> _refreshApps() async {
-    if (_isBackgroundLoading) {
-      debugPrint('Refresh already in progress, skipping');
-      return;
-    }
-
-    try {
-      if (mounted) {
-        setState(() {
-          _isBackgroundLoading = true;
-        });
-      }
-
-      await _refreshAppsInBackground();
-    } catch (e) {
-      debugPrint('Error in refresh apps: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isBackgroundLoading = false;
-        });
-      }
-    }
-  }
-
   Future<void> _refreshAppsInBackground() async {
     try {
       // Fetch all apps directly from the system

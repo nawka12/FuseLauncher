@@ -5,7 +5,6 @@ import 'package:installed_apps/installed_apps.dart';
 import '../app_sections.dart';
 import '../sort_options.dart';
 import 'dart:async';
-import 'app_layout_manager.dart';
 import '../database/app_database.dart';
 import '../models/folder.dart';
 
