@@ -99,7 +99,10 @@ class _AppGridViewState extends State<AppGridView> {
       }
     });
 
-    final sections = AppSectionManager.createSections(_filteredApps);
+    final sections = AppSectionManager.createSections(
+      _filteredApps,
+      sortType: widget.sortType,
+    );
     if (sections.isEmpty) return;
 
     double offset = 0;
@@ -346,10 +349,12 @@ class _AppGridViewState extends State<AppGridView> {
         widget.hiddenApps.contains(application.packageName);
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
         widget.onAppLaunch(application.packageName);
         if (!widget.isSelectingAppsToHide) {
-          InstalledApps.startApp(application.packageName);
+          try {
+            await InstalledApps.startApp(application.packageName);
+          } catch (_) {}
         }
       },
       onLongPress: () => widget.onAppLongPress(context, application, isPinned),
@@ -484,9 +489,11 @@ class _AppGridViewState extends State<AppGridView> {
                 itemBuilder: (context, index) {
                   final app = folder.apps[index];
                   return InkWell(
-                    onTap: () {
+                    onTap: () async {
                       widget.onAppLaunch(app.packageName);
-                      InstalledApps.startApp(app.packageName);
+                      try {
+                        await InstalledApps.startApp(app.packageName);
+                      } catch (_) {}
                     },
                     onLongPress: () => widget
                         .onAppLongPress(context, app, false, onAppRemoved: () {

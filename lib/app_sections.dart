@@ -24,10 +24,12 @@ class AppSectionManager {
         sortedApps.sort((a, b) => 
           (a.name).toLowerCase().compareTo((b.name).toLowerCase())
         );
+        break;
       case AppListSortType.alphabeticalDesc:
         sortedApps.sort((a, b) => 
           (b.name).toLowerCase().compareTo((a.name).toLowerCase())
         );
+        break;
       case AppListSortType.usage:
         // Already handled above
         break;

@@ -85,7 +85,10 @@ class _AppListViewState extends State<AppListView> {
     });
 
     if (widget.sortType != AppListSortType.usage) {
-      final sections = AppSectionManager.createSections(_filteredApps);
+      final sections = AppSectionManager.createSections(
+        _filteredApps,
+        sortType: widget.sortType,
+      );
       if (sections.isEmpty) return;
       double offset = 0;
       if (!widget.showingHiddenApps &&
@@ -734,10 +737,12 @@ class _AppListViewState extends State<AppListView> {
                   size: 22,
                 )
               : null,
-      onTap: () {
+      onTap: () async {
         widget.onAppLaunch(application.packageName);
         if (!widget.isSelectingAppsToHide) {
-          InstalledApps.startApp(application.packageName);
+          try {
+            await InstalledApps.startApp(application.packageName);
+          } catch (_) {}
         }
       },
       onLongPress: () => widget.onAppLongPress(context, application, isPinned),

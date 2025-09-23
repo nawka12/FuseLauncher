@@ -236,7 +236,10 @@ class MainActivity: FlutterFragmentActivity() {
                     
                     if (widgetId != null && width != null && height != null) {
                         val widgetView = widgetViews[widgetId]
-                        widgetView?.updateAppWidgetSize(null, width, height, width, height)
+                        val density = resources.displayMetrics.density
+                        val dpWidth = (width / density).toInt()
+                        val dpHeight = (height / density).toInt()
+                        widgetView?.updateAppWidgetSize(null, dpWidth, dpHeight, dpWidth, dpHeight)
                         result.success(true)
                     } else {
                         result.success(false)
@@ -406,7 +409,12 @@ class MainActivity: FlutterFragmentActivity() {
     }
 
     override fun onBackPressed() {
-        val channel = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger!!, "com.kayfahaarukku.fuselauncher/system")
+        val messenger = flutterEngine?.dartExecutor?.binaryMessenger
+        if (messenger == null) {
+            super.onBackPressed()
+            return
+        }
+        val channel = MethodChannel(messenger, "com.kayfahaarukku.fuselauncher/system")
         channel.invokeMethod("getNavigationState", null, object : MethodChannel.Result {
             override fun success(result: Any?) {
                 when (result as? String) {

@@ -62,9 +62,10 @@ object AppQueryHelper {
     }
 
     private fun isMIUI(): Boolean {
-        return !Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) &&
-               !Build.MANUFACTURER.equals("Redmi", ignoreCase = true) &&
-               getSystemProperty("ro.miui.ui.version.name", "").isNotEmpty()
+        val isXiaomi = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) ||
+                       Build.MANUFACTURER.equals("Redmi", ignoreCase = true)
+        val hasMiuiProp = getSystemProperty("ro.miui.ui.version.name", "").isNotEmpty()
+        return isXiaomi || hasMiuiProp
     }
 
     private fun getSystemProperty(key: String, defaultValue: String): String {
