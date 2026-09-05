@@ -87,9 +87,6 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: isDarkMode
-            ? const Color(0xFF000000).withAlpha(128)
-            : const Color(0xFFFFFFFF).withAlpha(128),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(
@@ -412,10 +409,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSettingsCard(
-      {required Widget child,
-      required IconData icon,
-      required Color iconColor}) {
+  Widget _buildSettingsCard({
+    required Widget child,
+    required IconData icon,
+    required Color iconColor,
+  }) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
@@ -431,23 +429,24 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: iconColor.withAlpha(26),
-              borderRadius: BorderRadius.circular(14),
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: iconColor.withAlpha(26),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 24,
-            ),
-          ),
-          Expanded(child: child),
-        ],
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }

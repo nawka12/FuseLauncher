@@ -48,8 +48,11 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 ## Building from Source
 
 ### Prerequisites
-- Flutter SDK (^3.6.0)
-- Android SDK
+- Flutter SDK 3.47.2 stable (Dart 3.13.2), pinned in `.fvmrc`
+- FVM for selecting the pinned SDK
+- Java 17
+- Android SDK 36 and NDK 28.2.13676358
+- Android device or emulator running Android 7.0 (API 24) or newer
 - Git
 
 ### Setup
@@ -61,14 +64,16 @@ git clone https://github.com/nawka12/FuseLauncher.git
 cd FuseLauncher
 ```
 
-2. Install dependencies:
+2. Select the pinned Flutter SDK and install dependencies:
 ```bash
-flutter pub get
+fvm install
+fvm use
+fvm flutter pub get
 ```
 
 3. Update app icon (optional):
 ```bash
-flutter pub run flutter_launcher_icons
+fvm dart run flutter_launcher_icons
 ```
 
 ### Required Permissions
@@ -88,15 +93,40 @@ The app needs several Android permissions to function properly. These are define
 
 For debug build:
 ```bash
-flutter build apk --debug
+fvm flutter build apk --debug
 ```
 
-For release build:
+For release build, first set up signing (once):
+
 ```bash
-flutter build apk --release
+keytool -genkey -v -keystore ~/fuselauncher-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias fuselauncher
+```
+
+Copy `android/key.properties.example` to `android/key.properties` and point it at
+that keystore. Both the keystore and `key.properties` are gitignored - back the
+keystore up, because losing it means no existing install can ever be upgraded
+again. Without `key.properties` the release build still works but falls back to
+the debug key and must not be published.
+
+```bash
+fvm flutter build apk --release
 ```
 
 The built APK will be available at `build/app/outputs/flutter-apk/app-release.apk`
+
+To validate and run the app on a connected Android device or emulator:
+```bash
+fvm flutter analyze
+fvm flutter test
+fvm flutter run
+```
+
+The Android build uses Gradle 8.14, Android Gradle Plugin 8.13.1, and Kotlin 2.2.20.
+Poppins fonts are bundled so the app can start without downloading fonts.
+The installed-apps plugin is pinned to a revision that supports Flutter's current Android embedding.
+
+Static analysis currently reports informational deprecation and package-name notices.
+Use `fvm flutter analyze --no-fatal-infos` to check for errors and warnings without failing on those notices.
 
 ## Contributing
 

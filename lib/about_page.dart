@@ -17,9 +17,6 @@ class AboutPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: isDarkMode
-            ? const Color(0xFF000000).withAlpha(128)
-            : const Color(0xFFFFFFFF).withAlpha(128),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           title: Text(

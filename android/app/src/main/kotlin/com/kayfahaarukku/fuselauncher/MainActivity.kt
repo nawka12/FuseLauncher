@@ -6,9 +6,7 @@ import android.appwidget.AppWidgetProviderInfo
 import android.appwidget.AppWidgetHostView
 import android.content.ComponentName
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.view.ViewGroup
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode.transparent
@@ -70,13 +68,6 @@ class MainActivity: FlutterFragmentActivity() {
         widgetManager = AppWidgetManager.getInstance(this)
         widgetHost = AppWidgetHost(this, APPWIDGET_HOST_ID)
         widgetHost?.startListening()
-
-        // Add Z to A sorting option
-        val sortOptions = listOf(
-            "usage" to "Sort by Usage",
-            "alphabeticalAsc" to "Sort A to Z",
-            "alphabeticalDesc" to "Sort Z to A"
-        )
     }
 
     private fun createWidgetView(appWidgetId: Int, provider: AppWidgetProviderInfo): AppWidgetHostView? {
@@ -249,64 +240,6 @@ class MainActivity: FlutterFragmentActivity() {
             }
         }
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.fuselauncher/apps")
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "getApps" -> {
-                        val apps = AppQueryHelper.getLauncherActivities(this).map { resolveInfo ->
-                            val packageName = resolveInfo.activityInfo.packageName
-                            mapOf(
-                                "name" to AppQueryHelper.getAppLabel(this, packageName),
-                                "packageName" to packageName,
-                                "icon" to AppQueryHelper.getAppIcon(this, packageName)?.let { drawable ->
-                                    val bitmap = drawable.toBitmap()
-                                    ByteArrayOutputStream().use { stream ->
-                                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                                        stream.toByteArray()
-                                    }
-                                }
-                            )
-                        }
-                        result.success(apps)
-                    }
-                    "openAppSettings" -> {
-                        val packageName = call.argument<String>("packageName")
-                        if (packageName != null) {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                            intent.data = Uri.parse("package:$packageName")
-                            startActivity(intent)
-                            result.success(true)
-                        } else {
-                            result.error("INVALID_PACKAGE", "Package name is null", null)
-                        }
-                    }
-                    "launchApp" -> {
-                        val packageName = call.argument<String>("packageName")
-                        if (packageName != null) {
-                            val intent = packageManager.getLaunchIntentForPackage(packageName)
-                            if (intent != null) {
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                                intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-                                startActivity(intent)
-                                NotificationListener.instance?.clearNotificationsForPackage(packageName)
-                                result.success(true)
-                            } else {
-                                result.success(false)
-                            }
-                        } else {
-                            result.success(false)
-                        }
-                    }
-                    "clearStack" -> {
-                        clearStack()
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
-                }
-            }
-
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.fuselauncher/notifications")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -400,12 +333,6 @@ class MainActivity: FlutterFragmentActivity() {
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
             PackageManager.DONT_KILL_APP
         )
-    }
-
-    private fun clearStack() {
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        startActivity(intent)
     }
 
     override fun onBackPressed() {

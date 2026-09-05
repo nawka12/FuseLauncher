@@ -1,0 +1,12 @@
+# Copy to android/key.properties and fill in. Never commit the real file or the
+# keystore itself - both are gitignored.
+#
+# Create the keystore once with:
+#   keytool -genkey -v -keystore ~/fuselauncher-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias fuselauncher
+#
+# Back it up. Losing it means no existing install can ever be upgraded again.
+storeFile=/absolute/path/to/fuselauncher-release.jks
+storePassword=
+keyAlias=fuselauncher
+keyPassword=

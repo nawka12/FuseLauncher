@@ -5,35 +5,42 @@ Status information:
 [Fixed]: Bugs has been squashed
 [Wontfix]: Will not fix the bug.
 
-[New] Sorting switch fall-through causes wrong order in app sections
-- Files: lib/app_sections.dart
-- Description: In AppSectionManager.createSections, missing break statements in the switch make alphabeticalAsc fall into alphabeticalDesc and then usage, resulting in Z→A order and mismatched section headers when alphabetical sorting is selected.
-- Repro: Set app list sort to A→Z and observe list/grid renders Z→A and header behavior is inconsistent.
-
-[New] Section index calculation ignores current sortType in scroll listeners
+[Fixed] Deleting a folder did nothing until the launcher was restarted
 - Files: lib/layouts/app_list_view.dart, lib/layouts/app_grid_view.dart
-- Description: Scroll listeners call AppSectionManager.createSections without passing the active sortType, so section headers/haptics are computed using default alphabetical sort, not the user's selected sort.
-- Repro: Set sort to Z→A or usage; scroll and notice sticky headers/haptics do not match visible sectioning.
+- Description: The delete handler ran inside the folder options bottom sheet, whose `context` was popped before the confirmation dialog was answered. The row was deleted from the database, then `if (!context.mounted) return;` bailed out before `onFoldersChanged()`, so the UI never reloaded. Now uses the State's context for the dialog and drops the stale guard (`_loadFolders` already checks `mounted`).
+- Regression test: test/widget_test.dart deletes a folder and asserts it leaves the list.
+
+[Fixed] Wallpaper flickered when navigating between screens
+- Files: lib/main.dart, lib/settings_page.dart, lib/about_page.dart, android/app/src/main/res/values-night/styles.xml
+- Description: Three causes. (1) Android's default page transition paints an opaque `colorScheme.surface` behind the outgoing route, flashing over the translucent window; now overridden with `FadeForwardsPageTransitionsBuilder(backgroundColor: Colors.transparent)`. (2) Every page carried its own 50% dim, so two of them stacked mid-transition; the dim now lives once in `MaterialApp.builder` and all scaffolds are transparent. (3) `values-night` overrode `Theme.Transparent` with an opaque white window background, hiding the wallpaper entirely in dark mode; the override is gone so it falls back to the transparent day style.
+
+[Half-working] Some times the app crashes during or after uninstalling an app
+- Files: lib/main.dart
+- Description: `_loadApps` called `setState` before checking `mounted`, so the `resumed` lifecycle callback fired after the activity was torn down could throw. Guarded. The uninstall handler and the `resumed` callback still both kick off a background refresh; if crashes persist, look there next.
+
+[Fixed] Sorting switch fall-through causes wrong order in app sections
+- Files: lib/app_sections.dart
+- Description: The `break` statements are present; alphabetical sorts no longer fall through.
+
+[Fixed] Section index calculation ignores current sortType in scroll listeners
+- Files: lib/layouts/app_list_view.dart, lib/layouts/app_grid_view.dart
+- Description: Both scroll listeners pass `sortType: widget.sortType` to `AppSectionManager.createSections`.
+
+[Fixed] MIUI detection logic inverted; triggers on non-Xiaomi devices
+- Files: android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/AppQueryHelper.kt (deleted)
+- Description: The dual-app branch queried the identical intent a second time and deduplicated it away, so it was a no-op. The whole `com.kayfahaarukku.fuselauncher/apps` channel it served was never invoked from Dart (the app uses the `installed_apps` plugin), so the channel and AppQueryHelper are gone.
+
+[Fixed] Widget size unit mismatch between Flutter and Android
+- Files: lib/widget_manager.dart, android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/MainActivity.kt
+- Description: `updateWidgetSize` divides by `displayMetrics.density` before calling `updateAppWidgetSize`.
+
+[Fixed] Potential crash: force-unwrapped flutterEngine in onBackPressed
+- Files: android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/MainActivity.kt
+- Description: `onBackPressed` null-checks the binary messenger and falls back to `super.onBackPressed()`.
 
 [Wontfix] Missing import for Uint8List causes compile error
 - Files: lib/app_package_manager.dart
-- Description: File references Uint8List but does not import dart:typed_data, leading to a compile-time error.
-- Repro: Run a build; analyzer reports undefined identifier Uint8List in app_package_manager.dart.
-
-[New] MIUI detection logic inverted; triggers on non-Xiaomi devices
-- Files: android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/AppQueryHelper.kt
-- Description: isMIUI() negates manufacturer checks, returning true for non-Xiaomi/Redmi devices and false for Xiaomi/Redmi when MIUI property exists. Dual-app query path can run incorrectly.
-- Repro: On non-Xiaomi device, isMIUI() returns true leading to redundant queries and potential duplicates.
-
-[New] Widget size unit mismatch between Flutter and Android
-- Files: lib/widget_manager.dart, android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/MainActivity.kt
-- Description: Flutter sends logical pixel width/height to updateWidgetSize; Android forwards these ints directly to updateAppWidgetSize (expects dp), causing widgets to render at incorrect sizes on various densities.
-- Repro: Add a widget and resize; sizes appear inconsistent across devices with different DPI.
-
-[New] Potential crash: force-unwrapped flutterEngine in onBackPressed
-- Files: android/app/src/main/kotlin/com/kayfahaarukku/fuselauncher/MainActivity.kt
-- Description: Uses flutterEngine?.dartExecutor?.binaryMessenger!!; if flutterEngine is null, app crashes when back is pressed before engine ready.
-- Repro: Trigger onBackPressed very early during app startup on some devices; observe crash.
+- Description: `package:flutter/services.dart` re-exports `dart:typed_data`, so this compiles. Not a real bug.
 
 [Wontfix] Fragile reliance on non-standard installed_apps MethodChannel methods
 - Files: lib/app_package_manager.dart, pubspec.yaml (installed_apps git ref)
@@ -45,4 +52,6 @@ Status information:
 - Description: Comment indicates "show all apps except system apps" when selecting to hide, but code uses the full widget.apps list without filtering. If widget.apps includes system apps, they will appear in the selection list.
 - Repro: Ensure widget.apps contains system apps; enable "select apps to hide"; system apps appear in the list.
 
-[New] Some times the app crashes during or after uninstalling an app.
+[New] Back navigation goes through a Kotlin round-trip and a global mutable
+- Files: android/.../MainActivity.kt, lib/navigation_state.dart, lib/main.dart, lib/settings_page.dart, lib/about_page.dart
+- Description: `onBackPressed` is overridden in Kotlin, asks Dart for `NavigationState.currentScreen` (a global static string kept in sync by hand on every push/pop), then either pops natively or hands back to Dart. Every page also needs `PopScope(canPop: false)` to work around it, and the manifest never opts into `enableOnBackInvokedCallback`, so predictive back is off. Flutter's own Navigator plus `PopScope` would do all of this. Left alone because it needs on-device testing to change safely.

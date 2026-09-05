@@ -531,7 +531,7 @@ class _AppListViewState extends State<AppListView> {
                         onTap: () async {
                           Navigator.pop(context);
                           final confirmed = await showDialog<bool>(
-                            context: context,
+                            context: this.context,
                             builder: (context) => AlertDialog(
                               backgroundColor: isDarkMode
                                   ? const Color(0xFF1E1E1E)
@@ -564,7 +564,6 @@ class _AppListViewState extends State<AppListView> {
                           );
                           if (confirmed == true) {
                             await AppDatabase.deleteFolder(folder.id);
-                            if (!context.mounted) return;
                             widget.onFoldersChanged();
                           }
                         },

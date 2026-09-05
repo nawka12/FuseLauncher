@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_usage_tracker.dart';
 import 'sort_options.dart';
 import 'app_sections.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show TargetPlatform, listEquals;
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
 import 'notification_service.dart';
@@ -38,6 +38,15 @@ void main() async {
   runApp(const MyApp());
 }
 
+// Default Android page transitions paint an opaque surface behind the outgoing
+// route, which flashes over the wallpaper. Transparent keeps the wallpaper.
+const _transparentPageTransitions = PageTransitionsTheme(
+  builders: {
+    TargetPlatform.android:
+        FadeForwardsPageTransitionsBuilder(backgroundColor: Colors.transparent),
+  },
+);
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -51,16 +60,18 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        scaffoldBackgroundColor: Colors.transparent,
+        pageTransitionsTheme: _transparentPageTransitions,
         textTheme: GoogleFonts.poppinsTextTheme(
           ThemeData.light().textTheme,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        appBarTheme: AppBarTheme(
+        appBarTheme: AppBarThemeData(
           elevation: 0,
           backgroundColor: Colors.transparent,
           iconTheme: const IconThemeData(color: Color(0xFF6750A4)),
@@ -70,7 +81,7 @@ class MyApp extends StatelessWidget {
             color: const Color(0xFF6750A4),
           ),
         ),
-        dialogTheme: DialogTheme(
+        dialogTheme: DialogThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -82,7 +93,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
+        inputDecorationTheme: InputDecorationThemeData(
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -105,17 +116,19 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        scaffoldBackgroundColor: Colors.transparent,
+        pageTransitionsTheme: _transparentPageTransitions,
         textTheme: GoogleFonts.poppinsTextTheme(
           ThemeData.dark().textTheme,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           color: const Color(0xFF2D2D2D),
         ),
-        appBarTheme: AppBarTheme(
+        appBarTheme: AppBarThemeData(
           elevation: 0,
           backgroundColor: Colors.transparent,
           iconTheme: const IconThemeData(color: Color(0xFFD0BCFF)),
@@ -125,7 +138,7 @@ class MyApp extends StatelessWidget {
             color: const Color(0xFFD0BCFF),
           ),
         ),
-        dialogTheme: DialogTheme(
+        dialogTheme: DialogThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -139,7 +152,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
+        inputDecorationTheme: InputDecorationThemeData(
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -157,6 +170,13 @@ class MyApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
+      builder: (context, child) => ColoredBox(
+        color: (Theme.of(context).brightness == Brightness.dark
+                ? Colors.black
+                : Colors.white)
+            .withAlpha(128),
+        child: child!,
+      ),
       home: const MyHomePage(),
     );
   }
@@ -411,6 +431,7 @@ class _MyHomePageState extends State<MyHomePage>
     }
 
     try {
+      if (!mounted) return;
       if (background) {
         setState(() {
           _isBackgroundLoading = true;
@@ -1135,8 +1156,6 @@ class _MyHomePageState extends State<MyHomePage>
       child: GestureDetector(
         onTap: _unfocusSearch,
         child: Scaffold(
-          backgroundColor:
-              (isDarkMode ? Colors.black : Colors.white).withAlpha(128),
           body: SafeArea(
             child: Column(
               children: [
