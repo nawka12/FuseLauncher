@@ -7,6 +7,7 @@ import '../sort_options.dart';
 import 'dart:async';
 import '../database/app_database.dart';
 import '../models/folder.dart';
+import 'section_hint.dart';
 
 class AppListView extends StatefulWidget {
   final List<AppInfo> apps;
@@ -50,6 +51,8 @@ class _AppListViewState extends State<AppListView> {
   final int _maxCacheSize = 50;
   final ScrollController _scrollController = ScrollController();
   String? _currentSection;
+  final Map<String, GlobalKey> _sectionKeys = {};
+  bool _barDrag = false;
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
 
@@ -63,6 +66,7 @@ class _AppListViewState extends State<AppListView> {
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _scrollEndTimer?.cancel();
     super.dispose();
   }
 
@@ -84,38 +88,43 @@ class _AppListViewState extends State<AppListView> {
       }
     });
 
-    if (widget.sortType != AppListSortType.usage) {
-      final sections = AppSectionManager.createSections(
-        _filteredApps,
-        sortType: widget.sortType,
-      );
-      if (sections.isEmpty) return;
-      double offset = 0;
-      if (!widget.showingHiddenApps &&
-          widget.pinnedApps.isNotEmpty &&
-          widget.searchController.text.isEmpty) {
-        offset += 40.0 + (widget.pinnedApps.length * 60.0) + 20.0;
-      }
-      if (!widget.showingHiddenApps &&
-          widget.folders.isNotEmpty &&
-          widget.searchController.text.isEmpty) {
-        offset += 40.0 + (widget.folders.length * 60.0) + 20.0;
-      }
-      for (final section in sections) {
-        final sectionHeight = 60.0 + (section.apps.length * 60.0);
-        if (_scrollController.offset >= offset &&
-            _scrollController.offset < offset + sectionHeight) {
-          if (_currentSection != section.letter) {
-            setState(() {
-              _currentSection = section.letter;
-            });
-            HapticFeedback.selectionClick();
-          }
-          break;
-        }
-        offset += sectionHeight;
-      }
+    final offset = _offset;
+    if (offset == null) return;
+    final section = sectionAtTop(_sectionKeys, offset);
+    if (section != null && section != _currentSection) {
+      HapticFeedback.selectionClick();
     }
+    // No setState: the hint rebuilds itself off _scrollController.
+    _currentSection = section;
+  }
+
+  // The interactive scrollbar owns the right edge of the view, so a pointer
+  // landing there is a thumb drag rather than a fling on the list itself.
+  void _handleScrollbarPointerDown(PointerDownEvent event) {
+    final onScrollbar =
+        event.position.dx > MediaQuery.sizeOf(context).width - 48;
+    final offset = _offset;
+    if (onScrollbar && offset != null) {
+      _currentSection = sectionAtTop(_sectionKeys, offset);
+    }
+    if (onScrollbar != _barDrag) setState(() => _barDrag = onScrollbar);
+  }
+
+  void _endScrollbarDrag() {
+    if (_barDrag) setState(() => _barDrag = false);
+  }
+
+  /// Null while the controller has no single scroll view to read - it is
+  /// briefly attached to two when the list swaps to and from the search layout.
+  double? get _offset =>
+      _scrollController.positions.length == 1 ? _scrollController.offset : null;
+
+  double get _scrollFraction {
+    if (_scrollController.positions.length != 1) return 0;
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return 0;
+    final maxExtent = position.maxScrollExtent;
+    return maxExtent > 0 ? position.pixels / maxExtent : 0;
   }
 
   List<AppInfo> get _filteredApps {
@@ -225,26 +234,43 @@ class _AppListViewState extends State<AppListView> {
       );
     }
 
-    return Theme(
-      data: scrollbarTheme,
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: _isScrolling,
-        interactive: true,
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            if (showPinned) ...[
-              _buildSectionHeader('Pinned Apps', isDarkMode),
-              _buildPinnedAppsList(),
-              if (showFolders) const SliverToBoxAdapter(child: Divider()),
-            ],
-            if (showFolders) ...[
-              _buildSectionHeader('Folders', isDarkMode),
-              _buildFolderList(),
-              const SliverToBoxAdapter(child: Divider()),
-            ],
-            ..._buildAppSections(sections, isDarkMode),
+    return Listener(
+      onPointerDown: _handleScrollbarPointerDown,
+      onPointerUp: (_) => _endScrollbarDrag(),
+      onPointerCancel: (_) => _endScrollbarDrag(),
+      child: Theme(
+        data: scrollbarTheme,
+        child: Stack(
+          children: [
+            Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: _isScrolling,
+              interactive: true,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  if (showPinned) ...[
+                    _buildSectionHeader('Pinned Apps', isDarkMode),
+                    _buildPinnedAppsList(),
+                    if (showFolders)
+                      const SliverToBoxAdapter(child: Divider()),
+                  ],
+                  if (showFolders) ...[
+                    _buildSectionHeader('Folders', isDarkMode),
+                    _buildFolderList(),
+                    const SliverToBoxAdapter(child: Divider()),
+                  ],
+                  ..._buildAppSections(sections, isDarkMode),
+                ],
+              ),
+            ),
+            AnimatedBuilder(
+              animation: _scrollController,
+              builder: (context, _) => SectionHint(
+                letter: _barDrag ? _currentSection : null,
+                position: _scrollFraction,
+              ),
+            ),
           ],
         ),
       ),
@@ -631,11 +657,14 @@ class _AppListViewState extends State<AppListView> {
   }
 
   List<Widget> _buildAppSections(List<AppSection> sections, bool isDarkMode) {
+    final showLetters = sections.length > 1;
     return sections.expand((section) {
       return [
-        if (sections.length > 1)
-          _buildSectionHeader(section.letter, isDarkMode),
+        if (showLetters) _buildSectionHeader(section.letter, isDarkMode),
         SliverList(
+          key: showLetters
+              ? _sectionKeys.putIfAbsent(section.letter, () => GlobalKey())
+              : null,
           delegate: SliverChildBuilderDelegate(
             (context, index) => _buildAppTile(section.apps[index], false),
             childCount: section.apps.length,
