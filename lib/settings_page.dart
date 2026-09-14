@@ -11,6 +11,8 @@ class SettingsPage extends StatefulWidget {
   final Function(bool) onSearchBarPositionChanged;
   final bool showNotificationBadges;
   final Function(bool) onNotificationBadgesChanged;
+  final bool showNotificationPreviews;
+  final Function(bool) onNotificationPreviewsChanged;
   final VoidCallback onLayoutChanged;
 
   const SettingsPage({
@@ -19,6 +21,8 @@ class SettingsPage extends StatefulWidget {
     required this.onSearchBarPositionChanged,
     required this.showNotificationBadges,
     required this.onNotificationBadgesChanged,
+    required this.showNotificationPreviews,
+    required this.onNotificationPreviewsChanged,
     required this.onLayoutChanged,
   });
 
@@ -29,6 +33,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _currentPosition;
   late bool _showNotificationBadges;
+  late bool _showNotificationPreviews;
   late AppLayoutType _currentLayout;
   late int _gridColumns;
   bool _layoutInitialized = false;
@@ -38,6 +43,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _currentPosition = widget.isSearchBarAtTop;
     _showNotificationBadges = widget.showNotificationBadges;
+    _showNotificationPreviews = widget.showNotificationPreviews;
     _loadLayoutSettings();
   }
 
@@ -60,6 +66,15 @@ class _SettingsPageState extends State<SettingsPage> {
       _showNotificationBadges = value;
     });
     widget.onNotificationBadgesChanged(value);
+  }
+
+  Future<void> _toggleNotificationPreviews(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_notification_previews', value);
+    setState(() {
+      _showNotificationPreviews = value;
+    });
+    widget.onNotificationPreviewsChanged(value);
   }
 
   Future<void> _changeWallpaper(BuildContext context) async {
@@ -279,6 +294,38 @@ class _SettingsPageState extends State<SettingsPage> {
                 value: _showNotificationBadges,
                 activeColor: const Color(0xFF6750A4),
                 onChanged: _toggleNotificationBadges,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            _buildSettingsCard(
+              icon: Icons.notifications_none,
+              iconColor: const Color(0xFF03A9F4),
+              child: SwitchListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                title: Text(
+                  'Notification Previews',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                subtitle: Text(
+                  _showNotificationPreviews
+                      ? 'Show the latest notification under the app name'
+                      : 'Hide notification text in the app list',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: (isDarkMode ? Colors.white : Colors.black)
+                        .withAlpha(153),
+                  ),
+                ),
+                value: _showNotificationPreviews,
+                activeColor: const Color(0xFF6750A4),
+                onChanged: _toggleNotificationPreviews,
               ),
             ),
 

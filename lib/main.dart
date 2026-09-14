@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
+
 import 'widget_manager.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'app_usage_tracker.dart';
 import 'sort_options.dart';
 import 'app_sections.dart';
+
 import 'package:flutter/foundation.dart' show TargetPlatform, listEquals;
+
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
+
 import 'notification_service.dart';
 import 'settings_page.dart';
 import 'auth_service.dart';
@@ -17,10 +23,14 @@ import 'navigation_state.dart';
 import 'hidden_apps_manager.dart';
 import 'live_widget_preview.dart';
 import 'database/app_database.dart';
+
 import 'package:google_fonts/google_fonts.dart';
+
 import 'layouts/app_layout_switcher.dart';
 import 'layouts/app_layout_manager.dart';
+
 import 'dart:async';
+
 import 'app_package_manager.dart';
 import 'models/folder.dart';
 
@@ -42,8 +52,9 @@ void main() async {
 // route, which flashes over the wallpaper. Transparent keeps the wallpaper.
 const _transparentPageTransitions = PageTransitionsTheme(
   builders: {
-    TargetPlatform.android:
-        FadeForwardsPageTransitionsBuilder(backgroundColor: Colors.transparent),
+    TargetPlatform.android: FadeForwardsPageTransitionsBuilder(
+      backgroundColor: Colors.transparent,
+    ),
   },
 );
 
@@ -62,9 +73,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.transparent,
         pageTransitionsTheme: _transparentPageTransitions,
-        textTheme: GoogleFonts.poppinsTextTheme(
-          ThemeData.light().textTheme,
-        ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
         cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -88,9 +97,7 @@ class MyApp extends StatelessWidget {
         ),
         bottomSheetTheme: const BottomSheetThemeData(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
         ),
         inputDecorationTheme: InputDecorationThemeData(
@@ -118,9 +125,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.transparent,
         pageTransitionsTheme: _transparentPageTransitions,
-        textTheme: GoogleFonts.poppinsTextTheme(
-          ThemeData.dark().textTheme,
-        ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
         cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -147,9 +152,7 @@ class MyApp extends StatelessWidget {
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
         ),
         inputDecorationTheme: InputDecorationThemeData(
@@ -171,10 +174,11 @@ class MyApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       builder: (context, child) => ColoredBox(
-        color: (Theme.of(context).brightness == Brightness.dark
-                ? Colors.black
-                : Colors.white)
-            .withAlpha(128),
+        color:
+            (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black
+                    : Colors.white)
+                .withAlpha(128),
         child: child!,
       ),
       home: const MyHomePage(),
@@ -213,8 +217,10 @@ class _MyHomePageState extends State<MyHomePage>
   final int _maxCacheSize = 50; // Adjust based on your needs
   final FocusNode _searchFocusNode = FocusNode();
   final Map<String, int> _notificationCounts = {};
+  Map<String, List<AppNotification>> _notifications = {};
   bool _isSearchBarAtTop = true;
   bool _showNotificationBadges = true;
+  bool _showNotificationPreviews = true;
   final List<String> _hiddenApps = [];
   bool _showingHiddenApps = false;
   double _horizontalDragStart = 0;
@@ -253,10 +259,17 @@ class _MyHomePageState extends State<MyHomePage>
     _loadAddedWidgets();
     _loadSortTypes();
     NotificationService.initialize();
-    NotificationService.notificationStream.listen((counts) {
+    NotificationService.notificationStream.listen((notifications) {
+      if (!mounted) return;
       setState(() {
-        _notificationCounts.clear();
-        _notificationCounts.addAll(counts);
+        _notifications = notifications;
+        _notificationCounts
+          ..clear()
+          ..addEntries(
+            notifications.entries.map(
+              (entry) => MapEntry(entry.key, entry.value.length),
+            ),
+          );
       });
     });
     _loadSearchBarPosition();
@@ -265,8 +278,9 @@ class _MyHomePageState extends State<MyHomePage>
     _loadPinnedAppsBackup();
     _loadHiddenAppFolderMap();
 
-    const systemChannel =
-        MethodChannel('com.kayfahaarukku.fuselauncher/system');
+    const systemChannel = MethodChannel(
+      'com.kayfahaarukku.fuselauncher/system',
+    );
     systemChannel.setMethodCallHandler((call) async {
       if (call.method == 'getNavigationState') {
         return NavigationState.currentScreen;
@@ -331,11 +345,13 @@ class _MyHomePageState extends State<MyHomePage>
     switch (sortType) {
       case AppListSortType.alphabeticalAsc:
         folders.sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
       case AppListSortType.alphabeticalDesc:
         folders.sort(
-            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+        );
         break;
       case AppListSortType.usage:
         // For usage-based sorting, sort by the highest priority app in each folder
@@ -346,8 +362,9 @@ class _MyHomePageState extends State<MyHomePage>
 
             int highestPriority = 999999;
             for (var app in folder.apps) {
-              final index =
-                  _apps.indexWhere((a) => a.packageName == app.packageName);
+              final index = _apps.indexWhere(
+                (a) => a.packageName == app.packageName,
+              );
               if (index != -1 && index < highestPriority) {
                 highestPriority = index;
               }
@@ -388,6 +405,8 @@ class _MyHomePageState extends State<MyHomePage>
     setState(() {
       _showNotificationBadges =
           prefs.getBool('show_notification_badges') ?? true;
+      _showNotificationPreviews =
+          prefs.getBool('show_notification_previews') ?? true;
     });
   }
 
@@ -423,8 +442,10 @@ class _MyHomePageState extends State<MyHomePage>
     super.dispose();
   }
 
-  Future<void> _loadApps(
-      {bool background = false, bool forceRefresh = false}) async {
+  Future<void> _loadApps({
+    bool background = false,
+    bool forceRefresh = false,
+  }) async {
     if ((_isLoading && !background) || (_isBackgroundLoading && background)) {
       debugPrint('Loading already in progress, skipping');
       return;
@@ -450,7 +471,8 @@ class _MyHomePageState extends State<MyHomePage>
       // Then check if we need to refresh from the system
       final lastUpdate = await AppDatabase.getLastUpdateTime();
       final now = DateTime.now();
-      final shouldRefresh = forceRefresh ||
+      final shouldRefresh =
+          forceRefresh ||
           lastUpdate == null ||
           now.difference(lastUpdate) > const Duration(minutes: 10);
 
@@ -494,8 +516,10 @@ class _MyHomePageState extends State<MyHomePage>
       await _loadFolders();
       if (mounted) {
         setState(() {
-          _appSections = AppSectionManager.createSections(_apps,
-              sortType: _appListSortType);
+          _appSections = AppSectionManager.createSections(
+            _apps,
+            sortType: _appListSortType,
+          );
         });
       }
     }
@@ -519,20 +543,31 @@ class _MyHomePageState extends State<MyHomePage>
         return;
       }
 
+      // Drop other launchers, and ourselves - a home screen is not something
+      // you open from a home screen.
+      final launchers = await _getLauncherPackages();
+      if (launchers.isNotEmpty) {
+        freshApps.removeWhere((app) => launchers.contains(app.packageName));
+      }
+
       // Clean up any invalid apps from the database
-      final validPackageNames =
-          freshApps.map((app) => app.packageName).toList();
+      final validPackageNames = freshApps
+          .map((app) => app.packageName)
+          .toList();
       await AppDatabase.cleanupInvalidApps(validPackageNames);
 
       // Track changes between old and new app lists
-      final Set<String> oldPackageNames =
-          _apps.map((app) => app.packageName).toSet();
-      final Set<String> newPackageNames =
-          freshApps.map((app) => app.packageName).toSet();
+      final Set<String> oldPackageNames = _apps
+          .map((app) => app.packageName)
+          .toSet();
+      final Set<String> newPackageNames = freshApps
+          .map((app) => app.packageName)
+          .toSet();
 
       // Find apps that were removed and added
-      final Set<String> removedApps =
-          oldPackageNames.difference(newPackageNames);
+      final Set<String> removedApps = oldPackageNames.difference(
+        newPackageNames,
+      );
       final Set<String> addedApps = newPackageNames.difference(oldPackageNames);
 
       // Log changes for debugging
@@ -575,8 +610,10 @@ class _MyHomePageState extends State<MyHomePage>
 
         if (mounted) {
           setState(() {
-            _appSections = AppSectionManager.createSections(_apps,
-                sortType: _appListSortType);
+            _appSections = AppSectionManager.createSections(
+              _apps,
+              sortType: _appListSortType,
+            );
           });
         }
       }
@@ -586,10 +623,26 @@ class _MyHomePageState extends State<MyHomePage>
     }
   }
 
+  Future<Set<String>> _getLauncherPackages() async {
+    try {
+      const channel = MethodChannel('com.kayfahaarukku.fuselauncher/system');
+      final packages = await channel.invokeListMethod<String>(
+        'getLauncherPackages',
+      );
+      return packages?.toSet() ?? {};
+    } catch (e) {
+      debugPrint('Error getting launcher packages: $e');
+      return {};
+    }
+  }
+
   // Safely get installed apps with error handling for individual apps
   Future<List<AppInfo>> _getSafeInstalledApps() async {
     return AppPackageManager.getInstalledAppsSafely(
-        excludeSystemApps: false, withIcon: true, includeAppSize: false);
+      excludeSystemApps: false,
+      withIcon: true,
+      includeAppSize: false,
+    );
   }
 
   Future<bool> _onWillPop() async {
@@ -620,16 +673,22 @@ class _MyHomePageState extends State<MyHomePage>
     return false; // Never allow exiting the app with back button
   }
 
-  void _showAppOptions(BuildContext context, AppInfo application, bool isPinned,
-      {VoidCallback? onAppRemoved}) async {
-    bool? isSystemAppResult =
-        await InstalledApps.isSystemApp(application.packageName);
+  void _showAppOptions(
+    BuildContext context,
+    AppInfo application,
+    bool isPinned, {
+    VoidCallback? onAppRemoved,
+  }) async {
+    bool? isSystemAppResult = await InstalledApps.isSystemApp(
+      application.packageName,
+    );
     bool isSystemApp = isSystemAppResult ?? true;
     bool isHidden = _hiddenApps.contains(application.packageName);
     Folder? parentFolder;
     try {
       parentFolder = _folders.firstWhere(
-          (f) => f.appPackageNames.contains(application.packageName));
+        (f) => f.appPackageNames.contains(application.packageName),
+      );
     } catch (e) {
       parentFolder = null;
     }
@@ -637,8 +696,9 @@ class _MyHomePageState extends State<MyHomePage>
     if (context.mounted) {
       showModalBottomSheet(
         context: context,
-        backgroundColor:
-            isDarkMode ? const Color(0xFF252525) : Colors.white.withAlpha(242),
+        backgroundColor: isDarkMode
+            ? const Color(0xFF252525)
+            : Colors.white.withAlpha(242),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -672,7 +732,9 @@ class _MyHomePageState extends State<MyHomePage>
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 20),
+                            horizontal: 20,
+                            vertical: 20,
+                          ),
                           child: Row(
                             children: [
                               Container(
@@ -694,13 +756,13 @@ class _MyHomePageState extends State<MyHomePage>
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) {
-                                            return Icon(
-                                              Icons.android,
-                                              color: isDarkMode
-                                                  ? Colors.white
-                                                  : Colors.black54,
-                                            );
-                                          },
+                                                return Icon(
+                                                  Icons.android,
+                                                  color: isDarkMode
+                                                      ? Colors.white
+                                                      : Colors.black54,
+                                                );
+                                              },
                                         )
                                       : Icon(
                                           Icons.android,
@@ -742,29 +804,33 @@ class _MyHomePageState extends State<MyHomePage>
                         ),
                         if (isHidden)
                           ListTile(
-                            leading: Icon(Icons.visibility,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
+                            leading: Icon(
+                              Icons.visibility,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
                             title: Text(
                               'Unhide App',
                               style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
                             ),
                             onTap: () async {
                               Navigator.pop(context);
                               await _restoreAppToFolder(
-                                  application.packageName);
+                                application.packageName,
+                              );
                               setState(() {
                                 _hiddenApps.remove(application.packageName);
                                 _searchController.clear();
                                 _hiddenAppsSearchController.clear();
                                 // Don't restore pinned status - require user to pin again
-                                if (_pinnedAppsBackup
-                                    .contains(application.packageName)) {
+                                if (_pinnedAppsBackup.contains(
+                                  application.packageName,
+                                )) {
                                   // Don't add back to _pinnedApps
-                                  _pinnedAppsBackup
-                                      .remove(application.packageName);
+                                  _pinnedAppsBackup.remove(
+                                    application.packageName,
+                                  );
                                 }
                               });
                               await _saveHiddenApps();
@@ -780,8 +846,8 @@ class _MyHomePageState extends State<MyHomePage>
                           title: Text(
                             isPinned ? 'Unpin' : 'Pin to Top',
                             style: TextStyle(
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
                           ),
                           onTap: () async {
                             Navigator.pop(context);
@@ -797,20 +863,25 @@ class _MyHomePageState extends State<MyHomePage>
                             }
                             setState(() {
                               if (isPinned) {
-                                _pinnedApps.removeWhere((pinnedApp) =>
-                                    pinnedApp.packageName ==
-                                    application.packageName);
+                                _pinnedApps.removeWhere(
+                                  (pinnedApp) =>
+                                      pinnedApp.packageName ==
+                                      application.packageName,
+                                );
                               } else {
-                                if (!_pinnedApps.any((app) =>
-                                    app.packageName ==
-                                    application.packageName)) {
+                                if (!_pinnedApps.any(
+                                  (app) =>
+                                      app.packageName ==
+                                      application.packageName,
+                                )) {
                                   if (_pinnedApps.length < 10) {
                                     _pinnedApps.add(application);
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                            'Maximum 10 apps can be pinned'),
+                                          'Maximum 10 apps can be pinned',
+                                        ),
                                       ),
                                     );
                                   }
@@ -818,7 +889,8 @@ class _MyHomePageState extends State<MyHomePage>
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          '${application.name} is already pinned'),
+                                        '${application.name} is already pinned',
+                                      ),
                                     ),
                                   );
                                 }
@@ -829,13 +901,15 @@ class _MyHomePageState extends State<MyHomePage>
                         ),
                         if (!isSystemApp)
                           ListTile(
-                            leading:
-                                const Icon(Icons.delete, color: Colors.red),
+                            leading: const Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                            ),
                             title: Text(
                               'Uninstall',
                               style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
                             ),
                             onTap: () async {
                               Navigator.pop(context);
@@ -843,34 +917,44 @@ class _MyHomePageState extends State<MyHomePage>
                               try {
                                 // Start the uninstallation process
                                 await InstalledApps.uninstallApp(
-                                    application.packageName);
+                                  application.packageName,
+                                );
 
                                 // Remove from any folder
                                 for (var folder in _folders) {
-                                  if (folder.appPackageNames
-                                      .contains(application.packageName)) {
-                                    folder.appPackageNames
-                                        .remove(application.packageName);
+                                  if (folder.appPackageNames.contains(
+                                    application.packageName,
+                                  )) {
+                                    folder.appPackageNames.remove(
+                                      application.packageName,
+                                    );
                                     await AppDatabase.updateFolder(folder);
                                   }
                                 }
 
                                 // Immediately remove from our database
                                 await AppDatabase.removeApp(
-                                    application.packageName);
+                                  application.packageName,
+                                );
 
                                 // Remove the app from the current list directly
                                 if (mounted) {
                                   setState(() {
-                                    _apps.removeWhere((app) =>
-                                        app.packageName ==
-                                        application.packageName);
-                                    _pinnedApps.removeWhere((app) =>
-                                        app.packageName ==
-                                        application.packageName);
+                                    _apps.removeWhere(
+                                      (app) =>
+                                          app.packageName ==
+                                          application.packageName,
+                                    );
+                                    _pinnedApps.removeWhere(
+                                      (app) =>
+                                          app.packageName ==
+                                          application.packageName,
+                                    );
                                     _appSections =
-                                        AppSectionManager.createSections(_apps,
-                                            sortType: _appListSortType);
+                                        AppSectionManager.createSections(
+                                          _apps,
+                                          sortType: _appListSortType,
+                                        );
                                     // Reset loading indicators to prevent stuck state
                                     _isBackgroundLoading = false;
                                     _isLoading = false;
@@ -880,7 +964,9 @@ class _MyHomePageState extends State<MyHomePage>
                                 // Force refresh app list after uninstall
                                 if (mounted) {
                                   _loadApps(
-                                      background: true, forceRefresh: true);
+                                    background: true,
+                                    forceRefresh: true,
+                                  );
                                 }
                               } catch (e) {
                                 // If any error occurs, ensure loading states are reset
@@ -895,18 +981,21 @@ class _MyHomePageState extends State<MyHomePage>
                             },
                           ),
                         ListTile(
-                          leading: Icon(Icons.info_outline,
-                              color: isDarkMode ? Colors.white : Colors.black),
+                          leading: Icon(
+                            Icons.info_outline,
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
                           title: Text(
                             'App Info',
                             style: TextStyle(
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
                           ),
                           onTap: () async {
                             Navigator.pop(context);
                             await InstalledApps.openSettings(
-                                application.packageName);
+                              application.packageName,
+                            );
 
                             // When returning from app settings, force refresh the app list
                             // as the user might have uninstalled or updated the app
@@ -917,19 +1006,21 @@ class _MyHomePageState extends State<MyHomePage>
                         ),
                         if (parentFolder != null)
                           ListTile(
-                            leading: Icon(Icons.folder_off_outlined,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
+                            leading: Icon(
+                              Icons.folder_off_outlined,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
                             title: Text(
                               'Remove from Folder',
                               style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
                             ),
                             onTap: () async {
                               Navigator.pop(context);
-                              parentFolder!.appPackageNames
-                                  .remove(application.packageName);
+                              parentFolder!.appPackageNames.remove(
+                                application.packageName,
+                              );
                               await AppDatabase.updateFolder(parentFolder);
                               await _loadFolders();
                               onAppRemoved?.call();
@@ -944,8 +1035,8 @@ class _MyHomePageState extends State<MyHomePage>
                             title: Text(
                               'Move to Folder',
                               style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
                             ),
                             onTap: () {
                               Navigator.pop(context);
@@ -1024,12 +1115,15 @@ class _MyHomePageState extends State<MyHomePage>
               onPressed: () async {
                 final folderName = folderNameController.text.trim();
                 if (folderName.isNotEmpty) {
-                  if (_folders.any((f) =>
-                      f.name.toLowerCase() == folderName.toLowerCase())) {
+                  if (_folders.any(
+                    (f) => f.name.toLowerCase() == folderName.toLowerCase(),
+                  )) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content:
-                              Text('A folder with this name already exists.')),
+                        content: Text(
+                          'A folder with this name already exists.',
+                        ),
+                      ),
                     );
                     return;
                   }
@@ -1043,8 +1137,9 @@ class _MyHomePageState extends State<MyHomePage>
                     }
                   }
                   if (sourceFolderId != null) {
-                    final sourceFolder =
-                        _folders.firstWhere((f) => f.id == sourceFolderId);
+                    final sourceFolder = _folders.firstWhere(
+                      (f) => f.id == sourceFolderId,
+                    );
                     sourceFolder.appPackageNames.remove(app.packageName);
                     await AppDatabase.updateFolder(sourceFolder);
                   }
@@ -1107,8 +1202,9 @@ class _MyHomePageState extends State<MyHomePage>
 
     // First add widgets in the saved order
     for (var widgetId in savedOrder) {
-      final index = unorderedWidgets
-          .indexWhere((w) => w.widgetId?.toString() == widgetId);
+      final index = unorderedWidgets.indexWhere(
+        (w) => w.widgetId?.toString() == widgetId,
+      );
       if (index != -1) {
         orderedWidgets.add(unorderedWidgets[index]);
         unorderedWidgets.removeAt(index);
@@ -1171,8 +1267,9 @@ class _MyHomePageState extends State<MyHomePage>
                               child: Text(
                                 'Select apps to hide',
                                 style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black,
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1200,8 +1297,9 @@ class _MyHomePageState extends State<MyHomePage>
                               child: Text(
                                 'Done',
                                 style: TextStyle(
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black,
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
                                   fontSize: 16,
                                 ),
                               ),
@@ -1229,7 +1327,9 @@ class _MyHomePageState extends State<MyHomePage>
                             ),
                             decoration: InputDecoration(
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 16),
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
                               hintText: 'Search apps to hide...',
                               hintStyle: TextStyle(
                                 color:
@@ -1246,23 +1346,24 @@ class _MyHomePageState extends State<MyHomePage>
                               ),
                               suffixIcon:
                                   _hiddenAppsSearchController.text.isNotEmpty
-                                      ? IconButton(
-                                          icon: Icon(
-                                            Icons.clear,
-                                            color: (isDarkMode
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color:
+                                            (isDarkMode
                                                     ? Colors.white
                                                     : Colors.black)
                                                 .withAlpha(179),
-                                            size: 22,
-                                          ),
-                                          onPressed: () {
-                                            _hiddenAppsSearchController.clear();
-                                            setState(() {
-                                              // Force rebuild to update the filtered apps
-                                            });
-                                          },
-                                        )
-                                      : null,
+                                        size: 22,
+                                      ),
+                                      onPressed: () {
+                                        _hiddenAppsSearchController.clear();
+                                        setState(() {
+                                          // Force rebuild to update the filtered apps
+                                        });
+                                      },
+                                    )
+                                  : null,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
@@ -1316,66 +1417,70 @@ class _MyHomePageState extends State<MyHomePage>
                             canvasColor: Colors.transparent,
                             scrollbarTheme: ScrollbarThemeData(
                               thumbColor: WidgetStateProperty.all(
-                                  Colors.white.withAlpha(77)),
+                                Colors.white.withAlpha(77),
+                              ),
                               radius: const Radius.circular(20),
                               thickness: WidgetStateProperty.all(6.0),
                               interactive: true,
                             ),
                           ),
-                          child: Scrollbar(
-                            controller: _scrollController,
-                            thumbVisibility: _isAppsScrolling,
-                            interactive: true,
-                            child: ScrollConfiguration(
-                              behavior: AppScrollBehavior().copyWith(
-                                physics: const BouncingScrollPhysics(
-                                    parent: AlwaysScrollableScrollPhysics()),
+                          // No Scrollbar here: the list draws its own index
+                          // strip or thumb, and a second one paints over it.
+                          child: ScrollConfiguration(
+                            behavior: AppScrollBehavior().copyWith(
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
                               ),
-                              child: AppLayoutSwitcher(
-                                key: _appLayoutKey,
-                                apps: _apps,
-                                folders: const [],
-                                onFoldersChanged: _loadFolders,
-                                pinnedApps: const [],
-                                showingHiddenApps: _showingHiddenApps,
-                                onAppLongPress: (context, app, isPinned,
-                                        {onAppRemoved}) =>
-                                    _showAppOptions(context, app, isPinned,
-                                        onAppRemoved: onAppRemoved),
-                                isSelectingAppsToHide: _isSelectingAppsToHide,
-                                hiddenApps: _hiddenApps,
-                                onAppLaunch: (packageName) async {
-                                  if (_hiddenApps.contains(packageName)) {
-                                    await _restoreAppToFolder(packageName);
-                                    setState(() {
-                                      _hiddenApps.remove(packageName);
-                                    });
-                                  } else {
-                                    await _removeAppFromFolderIfHidden(
-                                        packageName);
-                                    setState(() {
-                                      _hiddenApps.add(packageName);
-                                    });
-                                  }
-                                },
-                                sortType: _appListSortType,
-                                notificationCounts: _notificationCounts,
-                                showNotificationBadges: _showNotificationBadges,
-                                searchController:
-                                    _showingHiddenApps || _isSelectingAppsToHide
-                                        ? _hiddenAppsSearchController
-                                        : _searchController,
-                                isBackgroundLoading: _isBackgroundLoading,
-                              ),
+                            ),
+                            child: AppLayoutSwitcher(
+                              key: _appLayoutKey,
+                              apps: _apps,
+                              folders: const [],
+                              onFoldersChanged: _loadFolders,
+                              pinnedApps: const [],
+                              showingHiddenApps: _showingHiddenApps,
+                              onAppLongPress:
+                                  (context, app, isPinned, {onAppRemoved}) =>
+                                      _showAppOptions(
+                                        context,
+                                        app,
+                                        isPinned,
+                                        onAppRemoved: onAppRemoved,
+                                      ),
+                              isSelectingAppsToHide: _isSelectingAppsToHide,
+                              hiddenApps: _hiddenApps,
+                              onAppLaunch: (packageName) async {
+                                if (_hiddenApps.contains(packageName)) {
+                                  await _restoreAppToFolder(packageName);
+                                  setState(() {
+                                    _hiddenApps.remove(packageName);
+                                  });
+                                } else {
+                                  await _removeAppFromFolderIfHidden(
+                                    packageName,
+                                  );
+                                  setState(() {
+                                    _hiddenApps.add(packageName);
+                                  });
+                                }
+                              },
+                              sortType: _appListSortType,
+                              notificationCounts: _notificationCounts,
+                              showNotificationBadges: _showNotificationBadges,
+                              notifications: _notifications,
+                              showNotificationPreviews:
+                                  _showNotificationPreviews,
+                              searchController:
+                                  _showingHiddenApps || _isSelectingAppsToHide
+                                  ? _hiddenAppsSearchController
+                                  : _searchController,
+                              isBackgroundLoading: _isBackgroundLoading,
                             ),
                           ),
                         )
                       : TabBarView(
                           controller: _tabController,
-                          children: [
-                            _buildAppsList(),
-                            _buildWidgetsList(),
-                          ],
+                          children: [_buildAppsList(), _buildWidgetsList()],
                         ),
                 ),
               ],
@@ -1507,48 +1612,52 @@ class _MyHomePageState extends State<MyHomePage>
               data: Theme.of(context).copyWith(
                 canvasColor: Colors.transparent,
                 scrollbarTheme: ScrollbarThemeData(
-                  thumbColor:
-                      WidgetStateProperty.all(Colors.white.withAlpha(77)),
+                  thumbColor: WidgetStateProperty.all(
+                    Colors.white.withAlpha(77),
+                  ),
                   radius: const Radius.circular(20),
                   thickness: WidgetStateProperty.all(6.0),
                   interactive: true,
                 ),
               ),
-              child: Scrollbar(
-                controller: _scrollController,
-                thumbVisibility: _isAppsScrolling,
-                interactive: true,
-                child: ScrollConfiguration(
-                  behavior: AppScrollBehavior().copyWith(
-                    physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics()),
+              // No Scrollbar here: the list draws its own index strip or
+              // thumb, and a second one paints over it.
+              child: ScrollConfiguration(
+                behavior: AppScrollBehavior().copyWith(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
-                  child: AppLayoutSwitcher(
-                    key: _appLayoutKey,
-                    apps: _apps,
-                    folders: _folders,
-                    onFoldersChanged: _loadFolders,
-                    pinnedApps: _pinnedApps
-                        .where((app) => !_hiddenApps.contains(app.packageName))
-                        .toList(), // Filter out hidden apps from pinned apps
-                    showingHiddenApps: _showingHiddenApps,
-                    onAppLongPress: (context, app, isPinned, {onAppRemoved}) =>
-                        _showAppOptions(context, app, isPinned,
-                            onAppRemoved: onAppRemoved),
-                    isSelectingAppsToHide: _isSelectingAppsToHide,
-                    hiddenApps: _hiddenApps,
-                    onAppLaunch: (packageName) async {
-                      await AppUsageTracker.recordAppLaunch(packageName);
-                    },
-                    sortType: _appListSortType,
-                    notificationCounts: _notificationCounts,
-                    showNotificationBadges: _showNotificationBadges,
-                    searchController:
-                        _showingHiddenApps || _isSelectingAppsToHide
-                            ? _hiddenAppsSearchController
-                            : _searchController,
-                    isBackgroundLoading: _isBackgroundLoading,
-                  ),
+                ),
+                child: AppLayoutSwitcher(
+                  key: _appLayoutKey,
+                  apps: _apps,
+                  folders: _folders,
+                  onFoldersChanged: _loadFolders,
+                  pinnedApps: _pinnedApps
+                      .where((app) => !_hiddenApps.contains(app.packageName))
+                      .toList(), // Filter out hidden apps from pinned apps
+                  showingHiddenApps: _showingHiddenApps,
+                  onAppLongPress: (context, app, isPinned, {onAppRemoved}) =>
+                      _showAppOptions(
+                        context,
+                        app,
+                        isPinned,
+                        onAppRemoved: onAppRemoved,
+                      ),
+                  isSelectingAppsToHide: _isSelectingAppsToHide,
+                  hiddenApps: _hiddenApps,
+                  onAppLaunch: (packageName) async {
+                    await AppUsageTracker.recordAppLaunch(packageName);
+                  },
+                  sortType: _appListSortType,
+                  notificationCounts: _notificationCounts,
+                  showNotificationBadges: _showNotificationBadges,
+                  notifications: _notifications,
+                  showNotificationPreviews: _showNotificationPreviews,
+                  searchController: _showingHiddenApps || _isSelectingAppsToHide
+                      ? _hiddenAppsSearchController
+                      : _searchController,
+                  isBackgroundLoading: _isBackgroundLoading,
                 ),
               ),
             ),
@@ -1576,23 +1685,26 @@ class _MyHomePageState extends State<MyHomePage>
                           ? const Color(0xFF212121)
                           : const Color(0xFFF5F5F5),
                       shape: const RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(20)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
                       ),
                       builder: (context) {
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ListTile(
-                              leading: Icon(Icons.reorder,
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
+                              leading: Icon(
+                                Icons.reorder,
+                                color: isDarkMode ? Colors.white : Colors.black,
+                              ),
                               title: Text(
                                 'Reorder Widgets',
                                 style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white
-                                        : Colors.black),
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -1602,14 +1714,17 @@ class _MyHomePageState extends State<MyHomePage>
                               },
                             ),
                             ListTile(
-                              leading:
-                                  Icon(Icons.delete_sweep, color: Colors.red),
+                              leading: Icon(
+                                Icons.delete_sweep,
+                                color: Colors.red,
+                              ),
                               title: Text(
                                 'Remove All Widgets',
                                 style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white
-                                        : Colors.black),
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                ),
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -1622,16 +1737,18 @@ class _MyHomePageState extends State<MyHomePage>
                                     title: Text(
                                       'Clear All Widgets',
                                       style: TextStyle(
-                                          color: isDarkMode
-                                              ? Colors.white
-                                              : Colors.black),
+                                        color: isDarkMode
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
                                     ),
                                     content: Text(
                                       'Are you sure you want to remove all widgets?',
                                       style: TextStyle(
-                                          color: isDarkMode
-                                              ? Colors.white70
-                                              : Colors.black54),
+                                        color: isDarkMode
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                      ),
                                     ),
                                     actions: [
                                       TextButton(
@@ -1644,7 +1761,8 @@ class _MyHomePageState extends State<MyHomePage>
                                           for (var widget in _addedWidgets) {
                                             if (widget.widgetId != null) {
                                               await WidgetManager.removeWidget(
-                                                  widget.widgetId!);
+                                                widget.widgetId!,
+                                              );
                                             }
                                           }
                                           await _loadAddedWidgets();
@@ -1673,8 +1791,11 @@ class _MyHomePageState extends State<MyHomePage>
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline,
-                          color: Colors.white70, size: 20),
+                      const Icon(
+                        Icons.info_outline,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1704,8 +1825,10 @@ class _MyHomePageState extends State<MyHomePage>
                           children: [
                             const Text(
                               'No widgets added',
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton(
@@ -1720,7 +1843,8 @@ class _MyHomePageState extends State<MyHomePage>
                           canvasColor: Colors.transparent,
                           scrollbarTheme: ScrollbarThemeData(
                             thumbColor: WidgetStateProperty.all(
-                                Colors.white.withAlpha(77)),
+                              Colors.white.withAlpha(77),
+                            ),
                             radius: const Radius.circular(20),
                             thickness: WidgetStateProperty.all(6.0),
                             interactive: true,
@@ -1733,7 +1857,8 @@ class _MyHomePageState extends State<MyHomePage>
                           child: ScrollConfiguration(
                             behavior: AppScrollBehavior().copyWith(
                               physics: const BouncingScrollPhysics(
-                                  parent: AlwaysScrollableScrollPhysics()),
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
                             ),
                             child: ReorderableListView.builder(
                               scrollController: _widgetsScrollController,
@@ -1757,17 +1882,19 @@ class _MyHomePageState extends State<MyHomePage>
                                 child: ResizableWidget(
                                   isReorderMode: _isReorderingWidgets,
                                   onLongPress: () => _showWidgetOptions(
-                                      context, _addedWidgets[index]),
+                                    context,
+                                    _addedWidgets[index],
+                                  ),
                                   child: Container(
                                     width: double.infinity,
-                                    height: _addedWidgets[index]
-                                        .minHeight
+                                    height: _addedWidgets[index].minHeight
                                         .toDouble(),
                                     decoration: BoxDecoration(
-                                      color: (isDarkMode
-                                              ? Colors.white
-                                              : Colors.black)
-                                          .withAlpha(26),
+                                      color:
+                                          (isDarkMode
+                                                  ? Colors.white
+                                                  : Colors.black)
+                                              .withAlpha(26),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: LiveWidgetPreview(
@@ -1790,8 +1917,9 @@ class _MyHomePageState extends State<MyHomePage>
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _showAddWidgetDialog,
-            backgroundColor:
-                isDarkMode ? const Color(0xFF6750A4) : const Color(0xFF6200EE),
+            backgroundColor: isDarkMode
+                ? const Color(0xFF6750A4)
+                : const Color(0xFF6200EE),
             child: Icon(Icons.add, color: Colors.white),
           ),
         ),
@@ -1830,11 +1958,12 @@ class _MyHomePageState extends State<MyHomePage>
                       decoration: InputDecoration(
                         hintText: 'Search widgets...',
                         hintStyle: TextStyle(
-                            color:
-                                isDarkMode ? Colors.white70 : Colors.black54),
-                        prefixIcon: Icon(Icons.search,
-                            color:
-                                isDarkMode ? Colors.white70 : Colors.black54),
+                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
                         filled: true,
                         fillColor: isDarkMode
                             ? const Color(0xFF3A3A3A)
@@ -1847,13 +1976,15 @@ class _MyHomePageState extends State<MyHomePage>
                       onChanged: (value) {
                         setState(() {
                           filteredWidgets = widgets
-                              .where((widget) =>
-                                  widget.appName
-                                      .toLowerCase()
-                                      .contains(value.toLowerCase()) ||
-                                  widget.label
-                                      .toLowerCase()
-                                      .contains(value.toLowerCase()))
+                              .where(
+                                (widget) =>
+                                    widget.appName.toLowerCase().contains(
+                                      value.toLowerCase(),
+                                    ) ||
+                                    widget.label.toLowerCase().contains(
+                                      value.toLowerCase(),
+                                    ),
+                              )
                               .toList();
                         });
                       },
@@ -1871,8 +2002,9 @@ class _MyHomePageState extends State<MyHomePage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 child: Text(
                                   entry.key,
                                   style: TextStyle(
@@ -1882,37 +2014,43 @@ class _MyHomePageState extends State<MyHomePage>
                                   ),
                                 ),
                               ),
-                              ...entry.value.map((widget) => ListTile(
-                                    title: Text(
-                                      widget.label,
-                                      style: TextStyle(
-                                          color: isDarkMode
-                                              ? Colors.white
-                                              : Colors.black),
+                              ...entry.value.map(
+                                (widget) => ListTile(
+                                  title: Text(
+                                    widget.label,
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white
+                                          : Colors.black,
                                     ),
-                                    subtitle: Text(
-                                      '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
-                                      '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
-                                      style: TextStyle(
-                                          color: isDarkMode
-                                              ? Colors.white70
-                                              : Colors.black54),
+                                  ),
+                                  subtitle: Text(
+                                    '${(widget.minWidth / MediaQuery.of(context).devicePixelRatio).round()}x'
+                                    '${(widget.minHeight / MediaQuery.of(context).devicePixelRatio).round()} dp',
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.white70
+                                          : Colors.black54,
                                     ),
-                                    onTap: () async {
-                                      Navigator.pop(context);
-                                      final success =
-                                          await WidgetManager.addWidget(widget);
-                                      if (success && mounted) {
-                                        await _loadAddedWidgets();
-                                        setState(
-                                            () {}); // Refresh the widget list
-                                      }
-                                    },
-                                  )),
+                                  ),
+                                  onTap: () async {
+                                    Navigator.pop(context);
+                                    final success =
+                                        await WidgetManager.addWidget(widget);
+                                    if (success && mounted) {
+                                      await _loadAddedWidgets();
+                                      setState(
+                                        () {},
+                                      ); // Refresh the widget list
+                                    }
+                                  },
+                                ),
+                              ),
                               Divider(
-                                  color: isDarkMode
-                                      ? const Color(0x3DFFFFFF)
-                                      : const Color(0x3D000000)),
+                                color: isDarkMode
+                                    ? const Color(0x3DFFFFFF)
+                                    : const Color(0x3D000000),
+                              ),
                             ],
                           );
                         },
@@ -1951,15 +2089,17 @@ class _MyHomePageState extends State<MyHomePage>
     grouped.removeWhere((key, value) => value.isEmpty);
 
     return Map.fromEntries(
-        grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
+      grouped.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+    );
   }
 
   void _showWidgetOptions(BuildContext context, WidgetInfo widget) {
     HapticFeedback.heavyImpact();
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+      backgroundColor: isDarkMode
+          ? const Color(0xFF212121)
+          : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1993,7 +2133,9 @@ class _MyHomePageState extends State<MyHomePage>
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 20),
+                          horizontal: 20,
+                          vertical: 20,
+                        ),
                         child: Row(
                           children: [
                             FutureBuilder<Widget>(
@@ -2040,12 +2182,15 @@ class _MyHomePageState extends State<MyHomePage>
                         ),
                       ),
                       ListTile(
-                        leading: Icon(Icons.reorder,
-                            color: isDarkMode ? Colors.white : Colors.black),
+                        leading: Icon(
+                          Icons.reorder,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        ),
                         title: Text(
                           'Reorder Widgets',
                           style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black),
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
                         ),
                         onTap: () {
                           Navigator.pop(context);
@@ -2059,7 +2204,8 @@ class _MyHomePageState extends State<MyHomePage>
                         title: Text(
                           'Remove Widget',
                           style: TextStyle(
-                              color: isDarkMode ? Colors.white : Colors.black),
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
                         ),
                         onTap: () async {
                           Navigator.pop(context);
@@ -2105,7 +2251,8 @@ class _MyHomePageState extends State<MyHomePage>
       } catch (e) {
         // App not found in the list, continue to other methods
         debugPrint(
-            'App $packageName not found in current list when loading icon data: $e');
+          'App $packageName not found in current list when loading icon data: $e',
+        );
       }
 
       // If not found or icon is null, try to load icon
@@ -2157,6 +2304,15 @@ class _MyHomePageState extends State<MyHomePage>
         // App is in the foreground
         debugPrint('App resumed - refreshing app list');
         _loadApps(background: true, forceRefresh: true);
+        // Coming back from another app is a fresh start, so the drawer opens
+        // on an empty search box. The lists reset their own scroll to match.
+        if (_searchController.text.isNotEmpty ||
+            _hiddenAppsSearchController.text.isNotEmpty) {
+          setState(() {
+            _searchController.clear();
+            _hiddenAppsSearchController.clear();
+          });
+        }
         break;
       case AppLifecycleState.inactive:
         // App is partially obscured, may be entering multitasking
@@ -2190,9 +2346,9 @@ class _MyHomePageState extends State<MyHomePage>
     }
 
     // Save both package names and their order
-    final pinnedAppData = validPinnedApps
-        .asMap()
-        .map((index, app) => MapEntry(app.packageName, index));
+    final pinnedAppData = validPinnedApps.asMap().map(
+      (index, app) => MapEntry(app.packageName, index),
+    );
     await prefs.setString('pinned_apps_data', jsonEncode(pinnedAppData));
   }
 
@@ -2212,9 +2368,7 @@ class _MyHomePageState extends State<MyHomePage>
 
       for (var entry in sortedEntries) {
         try {
-          final app = _apps.firstWhere(
-            (app) => app.packageName == entry.key,
-          );
+          final app = _apps.firstWhere((app) => app.packageName == entry.key);
           orderedApps.add(app);
         } catch (e) {
           // Skip if app not found
@@ -2242,8 +2396,9 @@ class _MyHomePageState extends State<MyHomePage>
   void _showAppListSortOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          isDarkMode ? const Color(0xFF212121) : const Color(0xFFF5F5F5),
+      backgroundColor: isDarkMode
+          ? const Color(0xFF212121)
+          : const Color(0xFFF5F5F5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -2251,9 +2406,7 @@ class _MyHomePageState extends State<MyHomePage>
       builder: (context) {
         return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.only(
-              bottom: _getBottomSheetPadding(context),
-            ),
+            padding: EdgeInsets.only(bottom: _getBottomSheetPadding(context)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2269,68 +2422,101 @@ class _MyHomePageState extends State<MyHomePage>
                   ),
                 ),
                 ListTile(
-                  leading: Icon(Icons.trending_up,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort by Usage',
-                      style: TextStyle(
-                          color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(
+                    Icons.trending_up,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                  title: Text(
+                    'Sort by Usage',
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
                   trailing: _appListSortType == AppListSortType.usage
-                      ? Icon(Icons.check,
-                          color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(
+                          Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        )
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
-                        _apps, AppListSortType.usage);
+                      _apps,
+                      AppListSortType.usage,
+                    );
                     _sortFolders(_folders, AppListSortType.usage);
                     setState(() {
                       _appListSortType = AppListSortType.usage;
-                      _appSections = AppSectionManager.createSections(_apps,
-                          sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(
+                        _apps,
+                        sortType: _appListSortType,
+                      );
                     });
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.sort_by_alpha,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort A to Z',
-                      style: TextStyle(
-                          color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(
+                    Icons.sort_by_alpha,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                  title: Text(
+                    'Sort A to Z',
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
                   trailing: _appListSortType == AppListSortType.alphabeticalAsc
-                      ? Icon(Icons.check,
-                          color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(
+                          Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        )
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
-                        _apps, AppListSortType.alphabeticalAsc);
+                      _apps,
+                      AppListSortType.alphabeticalAsc,
+                    );
                     _sortFolders(_folders, AppListSortType.alphabeticalAsc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalAsc;
-                      _appSections = AppSectionManager.createSections(_apps,
-                          sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(
+                        _apps,
+                        sortType: _appListSortType,
+                      );
                     });
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.sort_by_alpha_rounded,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: Text('Sort Z to A',
-                      style: TextStyle(
-                          color: isDarkMode ? Colors.white : Colors.black)),
+                  leading: Icon(
+                    Icons.sort_by_alpha_rounded,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                  title: Text(
+                    'Sort Z to A',
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
                   trailing: _appListSortType == AppListSortType.alphabeticalDesc
-                      ? Icon(Icons.check,
-                          color: isDarkMode ? Colors.white : Colors.black)
+                      ? Icon(
+                          Icons.check,
+                          color: isDarkMode ? Colors.white : Colors.black,
+                        )
                       : null,
                   onTap: () async {
                     Navigator.pop(context);
                     await AppUsageTracker.sortAppList(
-                        _apps, AppListSortType.alphabeticalDesc);
+                      _apps,
+                      AppListSortType.alphabeticalDesc,
+                    );
                     _sortFolders(_folders, AppListSortType.alphabeticalDesc);
                     setState(() {
                       _appListSortType = AppListSortType.alphabeticalDesc;
-                      _appSections = AppSectionManager.createSections(_apps,
-                          sortType: _appListSortType);
+                      _appSections = AppSectionManager.createSections(
+                        _apps,
+                        sortType: _appListSortType,
+                      );
                     });
                   },
                 ),
@@ -2386,13 +2572,15 @@ class _MyHomePageState extends State<MyHomePage>
             fontSize: 16,
           ),
           decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
             hintText: _showingHiddenApps
                 ? 'Search hidden apps...'
                 : _isSelectingAppsToHide
-                    ? 'Search apps to hide...'
-                    : 'Search apps...',
+                ? 'Search apps to hide...'
+                : 'Search apps...',
             hintStyle: TextStyle(
               color: (isDarkMode ? Colors.white : Colors.black).withAlpha(128),
               fontSize: 16,
@@ -2418,51 +2606,56 @@ class _MyHomePageState extends State<MyHomePage>
                     },
                   )
                 : _isSelectingAppsToHide
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.sort,
-                              color: (isDarkMode ? Colors.white : Colors.black)
-                                  .withAlpha(179),
-                              size: 22,
-                            ),
-                            onPressed: _showAppListSortOptions,
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.settings,
-                              color: (isDarkMode ? Colors.white : Colors.black)
-                                  .withAlpha(179),
-                              size: 22,
-                            ),
-                            onPressed: () {
-                              NavigationState.currentScreen = 'settings';
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SettingsPage(
-                                    isSearchBarAtTop: _isSearchBarAtTop,
-                                    showNotificationBadges:
-                                        _showNotificationBadges,
-                                    onSearchBarPositionChanged:
-                                        _updateSearchBarPosition,
-                                    onNotificationBadgesChanged: (value) {
-                                      setState(() {
-                                        _showNotificationBadges = value;
-                                      });
-                                    },
-                                    onLayoutChanged: _refreshAppLayout,
-                                  ),
-                                ),
-                              ).then((_) =>
-                                  NavigationState.currentScreen = 'main');
-                            },
-                          ),
-                        ],
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.sort,
+                          color: (isDarkMode ? Colors.white : Colors.black)
+                              .withAlpha(179),
+                          size: 22,
+                        ),
+                        onPressed: _showAppListSortOptions,
                       ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.settings,
+                          color: (isDarkMode ? Colors.white : Colors.black)
+                              .withAlpha(179),
+                          size: 22,
+                        ),
+                        onPressed: () {
+                          NavigationState.currentScreen = 'settings';
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SettingsPage(
+                                isSearchBarAtTop: _isSearchBarAtTop,
+                                showNotificationBadges: _showNotificationBadges,
+                                onSearchBarPositionChanged:
+                                    _updateSearchBarPosition,
+                                onNotificationBadgesChanged: (value) {
+                                  setState(() {
+                                    _showNotificationBadges = value;
+                                  });
+                                },
+                                showNotificationPreviews:
+                                    _showNotificationPreviews,
+                                onNotificationPreviewsChanged: (value) {
+                                  setState(() {
+                                    _showNotificationPreviews = value;
+                                  });
+                                },
+                                onLayoutChanged: _refreshAppLayout,
+                              ),
+                            ),
+                          ).then((_) => NavigationState.currentScreen = 'main');
+                        },
+                      ),
+                    ],
+                  ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,

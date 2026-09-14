@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
+import '../app_search.dart';
 import '../app_sections.dart';
 import '../sort_options.dart';
 import 'dart:async';
 import '../database/app_database.dart';
 import '../models/folder.dart';
+import '../notification_service.dart';
+import '../widgets/notification_popup.dart';
+import 'alphabet_index_bar.dart';
 import 'section_hint.dart';
 
 class AppListView extends StatefulWidget {
@@ -23,6 +27,8 @@ class AppListView extends StatefulWidget {
   final AppListSortType sortType;
   final Map<String, int> notificationCounts;
   final bool showNotificationBadges;
+  final Map<String, List<AppNotification>> notifications;
+  final bool showNotificationPreviews;
   final TextEditingController searchController;
 
   const AppListView({
@@ -39,6 +45,8 @@ class AppListView extends StatefulWidget {
     required this.sortType,
     required this.notificationCounts,
     required this.showNotificationBadges,
+    required this.notifications,
+    required this.showNotificationPreviews,
     required this.searchController,
   });
 
@@ -46,7 +54,8 @@ class AppListView extends StatefulWidget {
   State<AppListView> createState() => _AppListViewState();
 }
 
-class _AppListViewState extends State<AppListView> {
+class _AppListViewState extends State<AppListView>
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final Map<String, Uint8List> _iconCache = {};
   final int _maxCacheSize = 50;
   final ScrollController _scrollController = ScrollController();
@@ -59,11 +68,13 @@ class _AppListViewState extends State<AppListView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_scrollListener);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _scrollEndTimer?.cancel();
@@ -98,20 +109,18 @@ class _AppListViewState extends State<AppListView> {
     _currentSection = section;
   }
 
-  // The interactive scrollbar owns the right edge of the view, so a pointer
-  // landing there is a thumb drag rather than a fling on the list itself.
-  void _handleScrollbarPointerDown(PointerDownEvent event) {
-    final onScrollbar =
-        event.position.dx > MediaQuery.sizeOf(context).width - 48;
-    final offset = _offset;
-    if (onScrollbar && offset != null) {
-      _currentSection = sectionAtTop(_sectionKeys, offset);
-    }
-    if (onScrollbar != _barDrag) setState(() => _barDrag = onScrollbar);
-  }
-
-  void _endScrollbarDrag() {
-    if (_barDrag) setState(() => _barDrag = false);
+  /// Scrolls the section header keyed by [letter] to the top of the viewport.
+  /// The header slivers stay in the render tree while off-screen, so their
+  /// offset can be read without guessing at row heights.
+  void _jumpToSection(String letter) {
+    final target = letter == kTopIndexLetter
+        ? 0.0
+        : sectionOffset(_sectionKeys[letter]);
+    if (target == null || _scrollController.positions.length != 1) return;
+    final position = _scrollController.position;
+    _scrollController
+        .jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));
+    setState(() => _currentSection = letter);
   }
 
   /// Null while the controller has no single scroll view to read - it is
@@ -158,12 +167,7 @@ class _AppListViewState extends State<AppListView> {
       apps.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
     }
 
-    if (query.isNotEmpty) {
-      apps = apps
-          .where((app) => (app.name.toLowerCase().contains(query)))
-          .toList();
-    }
-    return apps;
+    return searchApps(apps, query);
   }
 
   Future<Uint8List?> _loadAppIcon(String packageName) async {
@@ -200,8 +204,23 @@ class _AppListViewState extends State<AppListView> {
     return null;
   }
 
+  /// Kept alive so a peek at the Widgets tab does not cost your place in the
+  /// list; coming back from another app resets it below.
+  @override
+  bool get wantKeepAlive => true;
+
+  /// Home, or a return from another app, is a fresh start: back to the top.
+  /// A tab switch is not - that keeps this state mounted and never fires here.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final sections = AppSectionManager.createSections(_filteredApps,
         sortType: widget.sortType);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -234,51 +253,74 @@ class _AppListViewState extends State<AppListView> {
       );
     }
 
-    return Listener(
-      onPointerDown: _handleScrollbarPointerDown,
-      onPointerUp: (_) => _endScrollbarDrag(),
-      onPointerCancel: (_) => _endScrollbarDrag(),
-      child: Theme(
-        data: scrollbarTheme,
-        child: Stack(
-          children: [
-            Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: _isScrolling,
-              interactive: true,
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  if (showPinned) ...[
-                    _buildSectionHeader('Pinned Apps', isDarkMode),
-                    _buildPinnedAppsList(),
-                    if (showFolders)
-                      const SliverToBoxAdapter(child: Divider()),
-                  ],
-                  if (showFolders) ...[
-                    _buildSectionHeader('Folders', isDarkMode),
-                    _buildFolderList(),
-                    const SliverToBoxAdapter(child: Divider()),
-                  ],
-                  ..._buildAppSections(sections, isDarkMode),
-                ],
+    final indexLetters = [
+      if (showPinned || showFolders) kTopIndexLetter,
+      if (sections.length > 1) ...sections.map((section) => section.letter),
+    ];
+    final showIndex = indexLetters.length > 1;
+
+    final scrollView = CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        if (showPinned) ...[
+          _buildSectionHeader('Pinned Apps', isDarkMode),
+          _buildPinnedAppsList(),
+          if (showFolders) const SliverToBoxAdapter(child: Divider()),
+        ],
+        if (showFolders) ...[
+          _buildSectionHeader('Folders', isDarkMode),
+          _buildFolderList(),
+          const SliverToBoxAdapter(child: Divider()),
+        ],
+        ..._buildAppSections(sections, isDarkMode),
+      ],
+    );
+
+    return Theme(
+      data: scrollbarTheme,
+      child: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+                right: showIndex ? AlphabetIndexBar.width : 0),
+            child: showIndex
+                ? scrollView
+                : Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: _isScrolling,
+                    interactive: true,
+                    child: scrollView,
+                  ),
+          ),
+          if (showIndex) ...[
+            Positioned(
+              top: 8,
+              bottom: 8,
+              right: 0,
+              child: AlphabetIndexBar(
+                letters: indexLetters,
+                onSelected: _jumpToSection,
+                onDragging: (dragging) => setState(() => _barDrag = dragging),
               ),
             ),
             AnimatedBuilder(
               animation: _scrollController,
               builder: (context, _) => SectionHint(
-                letter: _barDrag ? _currentSection : null,
+                letter: _barDrag && _currentSection != kTopIndexLetter
+                    ? _currentSection
+                    : null,
                 position: _scrollFraction,
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, bool isDarkMode) {
+  Widget _buildSectionHeader(String title, bool isDarkMode, {Key? key}) {
     return SliverToBoxAdapter(
+      key: key,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         child: Text(
@@ -660,11 +702,10 @@ class _AppListViewState extends State<AppListView> {
     final showLetters = sections.length > 1;
     return sections.expand((section) {
       return [
-        if (showLetters) _buildSectionHeader(section.letter, isDarkMode),
+        if (showLetters)
+          _buildSectionHeader(section.letter, isDarkMode,
+              key: _sectionKeys.putIfAbsent(section.letter, () => GlobalKey())),
         SliverList(
-          key: showLetters
-              ? _sectionKeys.putIfAbsent(section.letter, () => GlobalKey())
-              : null,
           delegate: SliverChildBuilderDelegate(
             (context, index) => _buildAppTile(section.apps[index], false),
             childCount: section.apps.length,
@@ -689,8 +730,18 @@ class _AppListViewState extends State<AppListView> {
         widget.notificationCounts[application.packageName]! > 0;
     final isSelectedToHide = widget.isSelectingAppsToHide &&
         widget.hiddenApps.contains(application.packageName);
+    final unread =
+        widget.showNotificationPreviews && !widget.isSelectingAppsToHide
+            ? widget.notifications[application.packageName]
+            : null;
+    final preview = unread != null &&
+            unread.isNotEmpty &&
+            unread.first.hasPreview
+        ? unread.first
+        : null;
+    final subtleColor = isDarkMode ? Colors.white70 : Colors.black54;
 
-    return ListTile(
+    final tile = ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Stack(
         clipBehavior: Clip.none,
@@ -744,27 +795,52 @@ class _AppListViewState extends State<AppListView> {
             ),
         ],
       ),
-      title: Text(
-        application.name,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w500,
-          color: isDarkMode ? Colors.white : Colors.black,
-        ),
-      ),
+      title: _buildAppTitle(application, preview, isDarkMode, subtleColor),
+      subtitle: preview == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (preview.title.isNotEmpty)
+                  Text(
+                    preview.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                if (preview.text.isNotEmpty)
+                  Text(
+                    preview.text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: subtleColor),
+                  ),
+              ],
+            ),
+      isThreeLine: preview != null,
       trailing: isSelectedToHide
           ? Icon(
               Icons.check_box,
               color: Theme.of(context).colorScheme.primary,
               size: 28,
             )
-          : isPinned
-              ? Icon(
-                  Icons.push_pin,
-                  color: isDarkMode ? Colors.white70 : Colors.black54,
-                  size: 22,
+          : preview != null
+              ? IconButton(
+                  icon: Icon(Icons.chevron_right, color: subtleColor),
+                  tooltip: 'Show notifications',
+                  onPressed: () => _showNotifications(application, unread!),
                 )
-              : null,
+              : isPinned
+                  ? Icon(
+                      Icons.push_pin,
+                      color: subtleColor,
+                      size: 22,
+                    )
+                  : null,
       onTap: () async {
         widget.onAppLaunch(application.packageName);
         if (!widget.isSelectingAppsToHide) {
@@ -774,6 +850,60 @@ class _AppListViewState extends State<AppListView> {
         }
       },
       onLongPress: () => widget.onAppLongPress(context, application, isPinned),
+    );
+
+    if (preview == null) return tile;
+    return Dismissible(
+      key: ValueKey('notifications-${application.packageName}'),
+      direction: DismissDirection.startToEnd,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.25},
+      // Opening the overlay is the whole action, so the row springs back
+      // instead of leaving the list.
+      confirmDismiss: (_) async {
+        _showNotifications(application, unread!);
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 28),
+        child: Icon(Icons.notifications, color: subtleColor, size: 22),
+      ),
+      child: tile,
+    );
+  }
+
+  void _showNotifications(AppInfo application, List<AppNotification> unread) =>
+      showAppNotifications(
+        context,
+        appName: application.name,
+        notifications: unread,
+        icon: _iconCache[application.packageName],
+      );
+
+  /// "Discord · 10h" once an app has something waiting, its plain name otherwise.
+  Widget _buildAppTitle(AppInfo application, AppNotification? preview,
+      bool isDarkMode, Color subtleColor) {
+    final nameStyle = TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w500,
+      color: isDarkMode ? Colors.white : Colors.black,
+    );
+    if (preview == null) return Text(application.name, style: nameStyle);
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            application.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: nameStyle,
+          ),
+        ),
+        Text(
+          ' · ${shortAgo(preview.postTime)}',
+          style: TextStyle(fontSize: 13, color: subtleColor),
+        ),
+      ],
     );
   }
 }

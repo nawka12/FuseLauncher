@@ -5,6 +5,7 @@ import 'app_list_view.dart';
 import 'app_grid_view.dart';
 import '../sort_options.dart';
 import '../models/folder.dart';
+import '../notification_service.dart';
 
 class AppLayoutSwitcher extends StatefulWidget {
   final List<AppInfo> apps;
@@ -20,6 +21,8 @@ class AppLayoutSwitcher extends StatefulWidget {
   final AppListSortType sortType;
   final Map<String, int> notificationCounts;
   final bool showNotificationBadges;
+  final Map<String, List<AppNotification>> notifications;
+  final bool showNotificationPreviews;
   final TextEditingController searchController;
   final ScrollController? scrollController;
   final bool isBackgroundLoading;
@@ -38,6 +41,8 @@ class AppLayoutSwitcher extends StatefulWidget {
     required this.sortType,
     required this.notificationCounts,
     required this.showNotificationBadges,
+    required this.notifications,
+    required this.showNotificationPreviews,
     required this.searchController,
     this.scrollController,
     this.isBackgroundLoading = false,
@@ -119,6 +124,8 @@ class _AppLayoutSwitcherState extends State<AppLayoutSwitcher> {
                 sortType: widget.sortType,
                 notificationCounts: widget.notificationCounts,
                 showNotificationBadges: widget.showNotificationBadges,
+                notifications: widget.notifications,
+                showNotificationPreviews: widget.showNotificationPreviews,
                 searchController: widget.searchController,
               )
             : AppGridView(

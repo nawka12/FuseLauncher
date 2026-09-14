@@ -44,7 +44,8 @@ void main() {
         );
       });
       messenger.setMockMethodCallHandler(widgets, (_) async => []);
-      messenger.setMockMethodCallHandler(notifications, (_) async => true);
+      messenger.setMockMethodCallHandler(notifications, (call) async =>
+          call.method == 'getCurrentNotifications' ? <Object?>[] : true);
       addTearDown(() async {
         for (final channel in [paths, apps, widgets, notifications]) {
           messenger.setMockMethodCallHandler(channel, null);

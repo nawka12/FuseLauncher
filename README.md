@@ -12,7 +12,7 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 ## Features
 
 ### App Management
-- 🔍 Fast app search with real-time filtering
+- 🔍 Fast app search with real-time filtering, ranked by how well the name matches
 - 📌 Pin up to 10 favorite apps for quick access
 - 🔤 Multiple sorting options:
   - Alphabetical (A to Z)
@@ -21,6 +21,7 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 - 🗑️ Quick uninstall for user apps
 - 👻 Hidden apps management
 - 📊 Smart app usage tracking with decay
+- 🏠 Other launchers kept out of the app list
 
 ### Widget Support
 - ➕ Add and manage Android widgets
@@ -33,10 +34,12 @@ A modern, customizable Android launcher built with Flutter that focuses on simpl
 - 🔄 Auto-clearing notifications when launching apps
 - 📊 Clean notification management
 - 🎛️ Toggleable notification badges
+- 💬 Notification previews under the app name, tap to open the notification
 
 ### UI/UX
 - 🌙 Dark theme optimized interface
 - ↕️ Smooth scrolling with section indicators
+- 🔤 A-Z index strip on the right edge to jump between sections
 - 📱 Edge-to-edge display support
 - 💫 Haptic feedback for interactions
 - 🔒 Prevents accidental launcher exits

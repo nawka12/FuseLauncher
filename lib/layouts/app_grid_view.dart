@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
 
+import '../app_search.dart';
 import '../app_sections.dart';
 import '../database/app_database.dart';
 import '../models/folder.dart';
 import '../sort_options.dart';
 import '../widgets/folder_widget.dart';
+import 'alphabet_index_bar.dart';
 import 'app_layout_manager.dart';
 import 'section_hint.dart';
 
@@ -50,7 +52,8 @@ class AppGridView extends StatefulWidget {
   State<AppGridView> createState() => _AppGridViewState();
 }
 
-class _AppGridViewState extends State<AppGridView> {
+class _AppGridViewState extends State<AppGridView>
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   int _columnCount = 4;
   final Map<String, Uint8List> _iconCache = {};
   final int _maxCacheSize = 50;
@@ -64,6 +67,7 @@ class _AppGridViewState extends State<AppGridView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadColumnCount();
     _scrollController.addListener(_scrollListener);
     widget.searchController.addListener(_onSearchChanged);
@@ -81,6 +85,7 @@ class _AppGridViewState extends State<AppGridView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     _scrollEndTimer?.cancel();
@@ -113,20 +118,18 @@ class _AppGridViewState extends State<AppGridView> {
     _currentSection = section;
   }
 
-  // The interactive scrollbar owns the right edge of the view, so a pointer
-  // landing there is a thumb drag rather than a fling on the list itself.
-  void _handleScrollbarPointerDown(PointerDownEvent event) {
-    final onScrollbar =
-        event.position.dx > MediaQuery.sizeOf(context).width - 48;
-    final offset = _offset;
-    if (onScrollbar && offset != null) {
-      _currentSection = sectionAtTop(_sectionKeys, offset);
-    }
-    if (onScrollbar != _barDrag) setState(() => _barDrag = onScrollbar);
-  }
-
-  void _endScrollbarDrag() {
-    if (_barDrag) setState(() => _barDrag = false);
+  /// Scrolls the section header keyed by [letter] to the top of the viewport.
+  /// The header slivers stay in the render tree while off-screen, so their
+  /// offset can be read without guessing at row heights.
+  void _jumpToSection(String letter) {
+    final target = letter == kTopIndexLetter
+        ? 0.0
+        : sectionOffset(_sectionKeys[letter]);
+    if (target == null || _scrollController.positions.length != 1) return;
+    final position = _scrollController.position;
+    _scrollController.jumpTo(
+        target.clamp(position.minScrollExtent, position.maxScrollExtent));
+    setState(() => _currentSection = letter);
   }
 
   /// Null while the controller has no single scroll view to read - it is
@@ -187,16 +190,26 @@ class _AppGridViewState extends State<AppGridView> {
           .sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
     }
 
-    if (query.isNotEmpty) {
-      appsToShow = appsToShow
-          .where((app) => app.name.toLowerCase().contains(query))
-          .toList();
+    return searchApps(appsToShow, query);
+  }
+
+  /// Kept alive so a peek at the Widgets tab does not cost your place in the
+  /// grid; coming back from another app resets it below.
+  @override
+  bool get wantKeepAlive => true;
+
+  /// Home, or a return from another app, is a fresh start: back to the top.
+  /// A tab switch is not - that keeps this state mounted and never fires here.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
     }
-    return appsToShow;
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final sections = AppSectionManager.createSections(_filteredApps,
         sortType: widget.sortType);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -217,54 +230,79 @@ class _AppGridViewState extends State<AppGridView> {
       ),
     );
 
-    return Listener(
-      onPointerDown: _handleScrollbarPointerDown,
-      onPointerUp: (_) => _endScrollbarDrag(),
-      onPointerCancel: (_) => _endScrollbarDrag(),
-      child: Theme(
-        data: scrollbarTheme,
-        child: Stack(
-          children: [
-            Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: _isScrolling,
-              interactive: true,
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  if (showPinned) ...[
-                    _buildSectionHeader('Pinned Apps', isDarkMode),
-                    _buildPinnedAppsGrid(),
-                    if (showFolders)
-                      const SliverToBoxAdapter(child: Divider()),
-                  ],
-                  if (showFolders) ...[
-                    _buildSectionHeader('Folders', isDarkMode),
-                    _buildFolderGrid(),
-                    const SliverToBoxAdapter(child: Divider()),
-                  ],
-                  if (widget.searchController.text.isNotEmpty)
-                    _buildAppSearchGrid(_filteredApps)
-                  else
-                    ..._buildAppSections(sections, isDarkMode),
-                ],
+    final searching = widget.searchController.text.isNotEmpty;
+    final indexLetters = [
+      if (showPinned || showFolders) kTopIndexLetter,
+      if (!searching && sections.length > 1)
+        ...sections.map((section) => section.letter),
+    ];
+    final showIndex = indexLetters.length > 1;
+
+    final scrollView = CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        if (showPinned) ...[
+          _buildSectionHeader('Pinned Apps', isDarkMode),
+          _buildPinnedAppsGrid(),
+          if (showFolders) const SliverToBoxAdapter(child: Divider()),
+        ],
+        if (showFolders) ...[
+          _buildSectionHeader('Folders', isDarkMode),
+          _buildFolderGrid(),
+          const SliverToBoxAdapter(child: Divider()),
+        ],
+        if (searching)
+          _buildAppSearchGrid(_filteredApps)
+        else
+          ..._buildAppSections(sections, isDarkMode),
+      ],
+    );
+
+    return Theme(
+      data: scrollbarTheme,
+      child: Stack(
+        children: [
+          Padding(
+            padding:
+                EdgeInsets.only(right: showIndex ? AlphabetIndexBar.width : 0),
+            child: showIndex
+                ? scrollView
+                : Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: _isScrolling,
+                    interactive: true,
+                    child: scrollView,
+                  ),
+          ),
+          if (showIndex) ...[
+            Positioned(
+              top: 8,
+              bottom: 8,
+              right: 0,
+              child: AlphabetIndexBar(
+                letters: indexLetters,
+                onSelected: _jumpToSection,
+                onDragging: (dragging) => setState(() => _barDrag = dragging),
               ),
             ),
             AnimatedBuilder(
               animation: _scrollController,
               builder: (context, _) => SectionHint(
-                letter: _barDrag ? _currentSection : null,
+                letter: _barDrag && _currentSection != kTopIndexLetter
+                    ? _currentSection
+                    : null,
                 position: _scrollFraction,
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, bool isDarkMode) {
+  Widget _buildSectionHeader(String title, bool isDarkMode, {Key? key}) {
     return SliverToBoxAdapter(
+      key: key,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Text(
@@ -326,11 +364,11 @@ class _AppGridViewState extends State<AppGridView> {
     final showLetters = sections.length > 1;
     return sections.expand((section) {
       return [
-        _buildSectionHeader(section.letter, isDarkMode),
+        _buildSectionHeader(section.letter, isDarkMode,
+            key: showLetters
+                ? _sectionKeys.putIfAbsent(section.letter, () => GlobalKey())
+                : null),
         SliverPadding(
-          key: showLetters
-              ? _sectionKeys.putIfAbsent(section.letter, () => GlobalKey())
-              : null,
           padding: const EdgeInsets.all(16.0),
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

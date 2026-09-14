@@ -1,5 +1,6 @@
 package com.kayfahaarukku.fuselauncher
 
+import android.app.ActivityOptions
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -240,42 +241,41 @@ class MainActivity: FlutterFragmentActivity() {
             }
         }
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.fuselauncher/notifications")
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "requestNotificationAccess" -> {
-                        Log.d("MainActivity", "Requesting notification access")
-                        if (!isNotificationServiceEnabled()) {
-                            startActivityForResult(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
-                                NOTIFICATION_LISTENER_SETTINGS
-                            )
-                        }
-                        toggleNotificationListenerService()
-                        result.success(isNotificationServiceEnabled())
+        val notificationChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.kayfahaarukku.fuselauncher/notifications"
+        )
+        notificationChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "requestNotificationAccess" -> {
+                    Log.d("MainActivity", "Requesting notification access")
+                    if (!isNotificationServiceEnabled()) {
+                        startActivityForResult(
+                            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                            NOTIFICATION_LISTENER_SETTINGS
+                        )
                     }
-                    "getCurrentNotifications" -> {
-                        NotificationListener.instance?.let { listener ->
-                            val notifications = mutableMapOf<String, Int>()
-                            listener.activeNotifications?.forEach { sbn ->
-                                if (!sbn.isOngoing) {
-                                    notifications[sbn.packageName] = 
-                                        (notifications[sbn.packageName] ?: 0) + 1
-                                }
-                            }
-                            result.success(notifications)
-                        } ?: result.success(mapOf<String, Int>())
-                    }
-                    else -> result.notImplemented()
+                    toggleNotificationListenerService()
+                    result.success(isNotificationServiceEnabled())
                 }
+                "getCurrentNotifications" -> result.success(NotificationListener.snapshot())
+                "openNotification" -> {
+                    val key = call.argument<String>("key")
+                    result.success(key != null && openNotification(key))
+                }
+                "dismissNotification" -> {
+                    call.argument<String>("key")?.let { NotificationListener.instance?.dismiss(it) }
+                    result.success(true)
+                }
+                else -> result.notImplemented()
             }
-            
-        NotificationListener.addListener { packageName, isPosted ->
-            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.fuselauncher/notifications")
-                .invokeMethod(
-                    if (isPosted) "onNotificationPosted" else "onNotificationRemoved",
-                    mapOf("packageName" to packageName)
-                )
+        }
+
+        // Listener callbacks arrive on a binder thread; channels are main-thread only.
+        NotificationListener.setListener {
+            runOnUiThread {
+                notificationChannel.invokeMethod("onNotificationsChanged", NotificationListener.snapshot())
+            }
         }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.kayfahaarukku.fuselauncher/system")
@@ -290,9 +290,49 @@ class MainActivity: FlutterFragmentActivity() {
                             result.error("ERROR", "Failed to launch wallpaper picker", null)
                         }
                     }
+                    "getLauncherPackages" -> result.success(launcherPackages())
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /** Packages whose drawer entry is itself a home screen - other launchers,
+     *  and us. Matching on CATEGORY_HOME alone would also catch home stubs
+     *  that have no drawer entry of their own, like Settings' FallbackHome,
+     *  so only components that answer to both categories count. */
+    private fun launcherPackages(): List<String> {
+        val homes = packageManager
+            .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            .map { it.activityInfo.packageName to it.activityInfo.name }
+            .toSet()
+        return packageManager
+            .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+            .filter { (it.activityInfo.packageName to it.activityInfo.name) in homes }
+            .map { it.activityInfo.packageName }
+            .distinct()
+    }
+
+    /** Fires a notification's own tap action, like tapping it in the shade -
+     *  minus the shade's auto-dismiss, which is the app's job to do or not.
+     *  Sent from the activity, and with background starts allowed, or the
+     *  target activity is silently dropped on Android 10 and up. */
+    private fun openNotification(key: String): Boolean {
+        val intent = NotificationListener.instance
+            ?.notificationFor(key)
+            ?.notification
+            ?.contentIntent ?: return false
+        return try {
+            val options = ActivityOptions.makeBasic()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                options.pendingIntentBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+            intent.send(this, 0, null, null, null, null, options.toBundle())
+            true
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error opening notification: ${e.message}")
+            false
+        }
     }
 
     fun removeWidgetView(widgetId: Int) {

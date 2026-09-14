@@ -7,15 +7,22 @@ import 'package:flutter/rendering.dart';
 String? sectionAtTop(Map<String, GlobalKey> sectionKeys, double scrollOffset) {
   String? current;
   for (final entry in sectionKeys.entries) {
-    final renderObject = entry.value.currentContext?.findRenderObject();
-    if (renderObject == null || !renderObject.attached) continue;
-    final start = RenderAbstractViewport.of(renderObject)
-        .getOffsetToReveal(renderObject, 0.0)
-        .offset;
+    final start = sectionOffset(entry.value);
+    if (start == null) continue;
     if (start > scrollOffset + 1) break;
     current = entry.key;
   }
   return current;
+}
+
+/// Scroll offset at which the sliver carrying [key] starts, or null when that
+/// sliver is not in the render tree.
+double? sectionOffset(GlobalKey? key) {
+  final renderObject = key?.currentContext?.findRenderObject();
+  if (renderObject == null || !renderObject.attached) return null;
+  return RenderAbstractViewport.of(renderObject)
+      .getOffsetToReveal(renderObject, 0.0)
+      .offset;
 }
 
 /// Letter badge shown while the scrollbar thumb is being dragged. It tracks the
