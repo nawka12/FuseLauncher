@@ -2,7 +2,6 @@ package com.kayfahaarukku.fuselauncher.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -38,7 +37,7 @@ fun FolderGridCell(
     horizontalAlignment = Alignment.CenterHorizontally,
     modifier = modifier
         .clip(RoundedCornerShape(12.dp))
-        .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+        .tileClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = 8.dp, horizontal = 2.dp),
 ) {
     Box(

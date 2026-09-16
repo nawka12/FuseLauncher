@@ -15,11 +15,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,7 +67,7 @@ fun AlphabetIndexBar(
 ) {
     var active by remember { mutableStateOf<String?>(null) }
     var height by remember { mutableFloatStateOf(0f) }
-    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
 
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
@@ -87,7 +86,7 @@ fun AlphabetIndexBar(
                 fun select(letter: String) {
                     if (letter == active) return
                     active = letter
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    view.selectionClick()
                     onSelected(letter)
                 }
 

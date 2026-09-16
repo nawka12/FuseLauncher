@@ -54,9 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -87,7 +86,7 @@ fun WidgetsPane(
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
 
     Box(
         modifier
@@ -98,7 +97,7 @@ fun WidgetsPane(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 onClick = {},
                 onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    view.heavyImpact()
                     menuOpen = true
                 },
             ),

@@ -3,7 +3,6 @@ package com.kayfahaarukku.fuselauncher.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
@@ -141,7 +140,7 @@ fun AppListRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .tileClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = ROW_PADDING_H, vertical = ROW_PADDING_V),
     ) {
         Box {
@@ -280,7 +279,7 @@ fun FolderListRow(
     verticalAlignment = Alignment.CenterVertically,
     modifier = Modifier
         .fillMaxWidth()
-        .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+        .tileClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(horizontal = ROW_PADDING_H, vertical = ROW_PADDING_V),
 ) {
     Box(
@@ -359,7 +358,7 @@ fun AppGridCell(
         verticalArrangement = Arrangement.Top,
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .tileClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(vertical = 8.dp, horizontal = 2.dp),
     ) {
         Box {

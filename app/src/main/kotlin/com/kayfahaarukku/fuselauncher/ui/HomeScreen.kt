@@ -40,13 +40,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -67,6 +71,7 @@ import com.kayfahaarukku.fuselauncher.data.Folder
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 /**
@@ -105,6 +110,24 @@ fun AppsPane(
 
     val jumpTargets = remember(state.sections, state.pinned, state.folders, prefs.layout) {
         indexTargets(state, prefs)
+    }
+
+    // One tick per section boundary the list crosses, which the Flutter build
+    // did from its scroll listener and this port never carried over - scrolling
+    // the drawer was silent. Only the letter matters, so derivedStateOf keeps
+    // it to a recomputation per boundary rather than one per scrolled pixel.
+    val view = LocalView.current
+    val topSection by remember(jumpTargets, prefs.layout) {
+        derivedStateOf {
+            val index = if (prefs.layout == AppLayoutType.GRID) gridState.firstVisibleItemIndex
+            else listState.firstVisibleItemIndex
+            jumpTargets.entries.filter { it.value <= index }.maxByOrNull { it.value }?.key
+        }
+    }
+    LaunchedEffect(jumpTargets, prefs.layout) {
+        // Drop the letter the list is already sitting on, or arriving here
+        // would tick on its own.
+        snapshotFlow { topSection }.drop(1).collect { if (it != null) view.selectionClick() }
     }
 
     fun jumpTo(letter: String) {
