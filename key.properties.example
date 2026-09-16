@@ -1,0 +1,6 @@
+# Copy to native/key.properties and point at your keystore.
+# Release builds fall back to the debug key without it, and are not publishable.
+storeFile=/absolute/path/to/keystore.jks
+storePassword=
+keyAlias=
+keyPassword=
