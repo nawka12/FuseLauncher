@@ -66,11 +66,18 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             } else {
-                logger.warn("WARNING: native/key.properties is missing - signing release with the debug key. Do not publish this APK.")
-                signingConfigs.getByName("debug")
+                // Signed with the debug key, so this APK could never replace the
+                // shipped app anyway - the signatures do not match and the install
+                // is refused. Take the debug build's id as well, so it installs
+                // beside the real one for testing instead of failing outright, and
+                // so a keyless build can never be mistaken for a publishable one.
+                logger.warn("WARNING: native/key.properties is missing - building a sideload-only release, id .native, signed with the debug key. Do not publish this APK.")
+                applicationIdSuffix = ".native"
+                versionNameSuffix = "-native"
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
