@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -99,6 +100,8 @@ fun AppsPane(
     val scope = rememberCoroutineScope()
     var hintLetter by remember { mutableStateOf<String?>(null) }
     var hintVisible by remember { mutableStateOf(false) }
+    var sideways by remember { mutableStateOf(false) }
+    val fling = rememberBouncingFling()
 
     val jumpTargets = remember(state.sections, state.pinned, state.folders, prefs.layout) {
         indexTargets(state, prefs)
@@ -116,7 +119,11 @@ fun AppsPane(
     Column(
         modifier
             .fillMaxSize()
-            .observeRightSwipes(enabled = hiddenMode == HiddenMode.OFF, onSwipeRight = onSwipeRight)
+            .observeDrags(
+                swipeRightEnabled = hiddenMode == HiddenMode.OFF,
+                onSwipeRight = onSwipeRight,
+                onSideways = { sideways = it },
+            )
     ) {
         if (prefs.searchBarAtTop) {
             SearchBar(state.query, hiddenMode, onSearch, onSort, onSettings)
@@ -127,13 +134,13 @@ fun AppsPane(
                 Box(Modifier.weight(1f)) {
                     if (prefs.layout == AppLayoutType.GRID) {
                         AppsGrid(
-                            state, prefs, hiddenMode, gridState, iconFor,
+                            state, prefs, hiddenMode, gridState, !sideways, fling, iconFor,
                             onLaunch, onLongPress, onToggleHidden,
                             onOpenFolder, onFolderLongPress,
                         )
                     } else {
                         AppsList(
-                            state, prefs, hiddenMode, listState, iconFor,
+                            state, prefs, hiddenMode, listState, !sideways, fling, iconFor,
                             onLaunch, onLongPress, onShowNotifications, onToggleHidden,
                             onOpenFolder, onFolderLongPress,
                         )
@@ -169,6 +176,8 @@ private fun AppsList(
     prefs: Prefs,
     hiddenMode: HiddenMode,
     listState: LazyListState,
+    scrollEnabled: Boolean,
+    fling: FlingBehavior,
     iconFor: (LauncherApp) -> ImageBitmap?,
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
@@ -176,7 +185,11 @@ private fun AppsList(
     onToggleHidden: (LauncherApp) -> Unit,
     onOpenFolder: (Folder) -> Unit,
     onFolderLongPress: (Folder) -> Unit,
-) = LazyColumn(state = listState) {
+) = LazyColumn(
+    state = listState,
+    userScrollEnabled = scrollEnabled,
+    flingBehavior = fling,
+) {
 
     fun LazyListScope.appRows(apps: List<LauncherApp>, pinnedRun: Boolean) =
         items(apps, key = { if (pinnedRun) "p-${it.key}" else it.key }) { app ->
@@ -228,6 +241,8 @@ private fun AppsGrid(
     prefs: Prefs,
     hiddenMode: HiddenMode,
     gridState: LazyGridState,
+    scrollEnabled: Boolean,
+    fling: FlingBehavior,
     iconFor: (LauncherApp) -> ImageBitmap?,
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
@@ -237,6 +252,8 @@ private fun AppsGrid(
 ) = LazyVerticalGrid(
     columns = GridCells.Fixed(prefs.gridColumns),
     state = gridState,
+    userScrollEnabled = scrollEnabled,
+    flingBehavior = fling,
     contentPadding = PaddingValues(horizontal = 8.dp),
 ) {
     if (state.pinned.isNotEmpty()) {
@@ -375,6 +392,11 @@ private val SEARCH_FILL = Color(0xFF2D2D2D)
 /**
  * Tab strip above the two panes: a translucent pill with a lighter selection.
  *
+ * The pill is dark where the Flutter build's was white at 10%. That washed out
+ * here - the scrim behind it is lighter than Flutter's was, so a pill that
+ * lightens the wallpaper had nothing left to stand against. Darkening it means
+ * it reads over a bright wallpaper too, and matches the search bar's fill.
+ *
  * [position] is the pager's fractional page, so the highlight travels with the
  * drag rather than snapping once the page settles.
  */
@@ -386,7 +408,7 @@ fun HomeTabs(position: Float, onSelect: (HomeTab) -> Unit) {
         Modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color.White.copy(alpha = 0.1f)),
+            .background(Color.Black.copy(alpha = 0.3f)),
     ) {
         TabRow(
             selectedTabIndex = settled,
@@ -471,31 +493,60 @@ private fun indexTargets(state: HomeState, prefs: Prefs): Map<String, Int> {
 
 
 /**
- * Reports a rightward drag across a fifth of the width, watching the Initial
- * pass and never consuming: the pager and the rows' own swipe handlers must
- * still see every event, so this can only observe.
+ * Watches drags across the pane on the Initial pass, never consuming: the pager
+ * and the rows' own swipe handlers must still see every event, so this can only
+ * observe.
+ *
+ * It reports two things. [onSwipeRight] fires on a rightward drag across a
+ * fifth of the width, which opens the hidden apps list. [onSideways] fires the
+ * moment a gesture commits to the horizontal, so the caller can hold the list
+ * still for the rest of it - the arena's job, which Compose does not do: the
+ * list would otherwise start scrolling as soon as the finger cleared slop
+ * vertically, however much further sideways it was travelling, which is what
+ * dragged the drawer around under a Back swipe.
+ *
+ * Consuming would be the obvious way to hold the list, and is wrong here: a
+ * consumed change is dead to the pager too, so Apps/Widgets would stop swiping.
  */
-private fun Modifier.observeRightSwipes(
-    enabled: Boolean,
+private fun Modifier.observeDrags(
+    swipeRightEnabled: Boolean,
     threshold: Float = 0.2f,
     onSwipeRight: () -> Unit,
-): Modifier = this.pointerInput(enabled) {
-    if (!enabled) return@pointerInput
+    onSideways: (Boolean) -> Unit,
+): Modifier = this.pointerInput(swipeRightEnabled) {
+    val slop = viewConfiguration.touchSlop
     awaitPointerEventScope {
         while (true) {
-            var pointerId = awaitPointerEvent(PointerEventPass.Initial)
-                .changes.firstOrNull { it.pressed }?.id ?: continue
+            val down = awaitPointerEvent(PointerEventPass.Initial)
+                .changes.firstOrNull { it.pressed } ?: continue
             var travelled = 0f
             var fired = false
-            while (true) {
-                val change = awaitPointerEvent(PointerEventPass.Initial)
-                    .changes.firstOrNull { it.id == pointerId } ?: break
-                if (!change.pressed) break
-                travelled += change.position.x - change.previousPosition.x
-                if (!fired && travelled > size.width * threshold) {
-                    fired = true
-                    onSwipeRight()
+            var sideways = false
+            // The release is not guaranteed: the system cancels the whole
+            // gesture the moment it commits to Back, which restarts this block
+            // from the top. Releasing the list anywhere but a finally would
+            // leave it frozen after exactly the swipe this exists for.
+            try {
+                while (true) {
+                    val change = awaitPointerEvent(PointerEventPass.Initial)
+                        .changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    travelled += change.position.x - change.previousPosition.x
+
+                    if (!sideways) {
+                        val travel = change.position - down.position
+                        if (touchAxis(travel.x, travel.y, slop) == TouchAxis.HORIZONTAL) {
+                            sideways = true
+                            onSideways(true)
+                        }
+                    }
+                    if (swipeRightEnabled && !fired && travelled > size.width * threshold) {
+                        fired = true
+                        onSwipeRight()
+                    }
                 }
+            } finally {
+                if (sideways) onSideways(false)
             }
         }
     }
