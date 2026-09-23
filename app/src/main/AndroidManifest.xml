@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR"/>
+    <!-- ACTION_DELETE is silently dropped without it. The Flutter build got it
+         merged in from the installed_apps plugin's manifest. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
 
     <queries>
         <intent>
