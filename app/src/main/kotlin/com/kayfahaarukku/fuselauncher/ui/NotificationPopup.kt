@@ -26,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -131,7 +130,8 @@ fun NotificationPopup(
 
             LazyColumn {
                 items(items, key = { it.key }) { notification ->
-                    val dismissState = rememberSwipeToDismissBoxState()
+                    // 0.4 is Dismissible's default, which the Flutter build kept.
+                    val (dismissState, watchFling) = rememberDismissibleState(threshold = 0.4f)
 
                     LaunchedEffect(dismissState.currentValue) {
                         if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
@@ -142,6 +142,7 @@ fun NotificationPopup(
 
                     SwipeToDismissBox(
                         state = dismissState,
+                        modifier = watchFling,
                         backgroundContent = {
                             Row(
                                 horizontalArrangement = Arrangement.SpaceBetween,

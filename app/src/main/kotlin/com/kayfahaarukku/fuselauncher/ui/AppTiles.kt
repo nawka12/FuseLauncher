@@ -32,7 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -239,16 +238,16 @@ fun AppListRow(
 
     // Opening the list is the whole action, so the row springs back rather than
     // leaving the list. Only the rightward direction is enabled, which leaves
-    // leftward drags to the pager underneath.
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.StartToEnd) onPreviewClick()
-            false
-        },
-    )
+    // leftward drags to the pager underneath. A quarter of the width is the
+    // Flutter build's dismissThresholds.
+    val (dismissState, watchFling) = rememberDismissibleState(threshold = 0.25f) { value ->
+        if (value == SwipeToDismissBoxValue.StartToEnd) onPreviewClick()
+        false
+    }
 
     SwipeToDismissBox(
         state = dismissState,
+        modifier = watchFling,
         enableDismissFromEndToStart = false,
         backgroundContent = {
             Box(
