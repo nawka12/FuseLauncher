@@ -197,6 +197,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val folderList = withContext(Dispatchers.IO) { folderStore.all() }
         allApps.value = loaded
         folders.value = folderList
+        // An open folder is a snapshot; without this, removing an app from it
+        // or renaming it left the pane showing the old contents.
+        openFolder.value = openFolder.value?.let { open -> folderList.firstOrNull { it.id == open.id } }
         hidden.value = settings.hiddenApps
         pinned.value = settings.pinnedApps
         loading.value = false
