@@ -40,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kayfahaarukku.fuselauncher.apps.DoubleSwipe
@@ -88,11 +89,16 @@ fun LauncherRoot(
     val hiddenAppsSwipe = remember { DoubleSwipe() }
     val pagerState = rememberPagerState(initialPage = tab.ordinal) { HomeTab.entries.size }
 
+    val focusManager = LocalFocusManager.current
+
     // Two-way sync. The pager drives the tab off settledPage so a half-finished
     // drag does not flip it, and the tab drives the pager only when they have
     // actually diverged, which keeps the two effects from chasing each other.
     LaunchedEffect(pagerState.settledPage) {
         viewModel.tab.value = HomeTab.entries[pagerState.settledPage]
+        // Put the search keyboard away, as Flutter's tab listener did: the Apps
+        // page stays composed behind Widgets and would otherwise keep it up.
+        focusManager.clearFocus()
     }
     LaunchedEffect(tab) {
         if (pagerState.currentPage != tab.ordinal) pagerState.animateScrollToPage(tab.ordinal)

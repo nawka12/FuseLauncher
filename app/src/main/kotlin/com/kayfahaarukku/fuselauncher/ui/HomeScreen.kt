@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -50,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -147,6 +149,8 @@ fun AppsPane(
     // A tab switch is not - the pager keeps this pane composed through it.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { scrollToTop() } }
 
+    val focusManager = LocalFocusManager.current
+
     fun jumpTo(letter: String) {
         hintLetter = letter
         val target = jumpTargets[letter] ?: return
@@ -159,6 +163,10 @@ fun AppsPane(
     Column(
         modifier
             .fillMaxSize()
+            // A tap on nothing in particular puts the keyboard away. Rows and
+            // the search field take their own taps first, so only empty space
+            // reaches this.
+            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
             .observeDrags(
                 swipeRightEnabled = hiddenMode == HiddenMode.OFF,
                 onSwipeRight = onSwipeRight,
