@@ -130,6 +130,17 @@ fun AppsPane(
         snapshotFlow { topSection }.drop(1).collect { if (it != null) view.selectionClick() }
     }
 
+    // Only the state on screen: the other has no layout, and scrolling it would
+    // suspend until one arrived.
+    suspend fun scrollToTop() =
+        if (prefs.layout == AppLayoutType.GRID) gridState.scrollToItem(0)
+        else listState.scrollToItem(0)
+
+    // A new query, or clearing one, starts from the top as it did on Flutter.
+    // Left alone, the list keeps its first visible app in place: clear a search
+    // for "Termux" and the drawer comes back scrolled to T.
+    LaunchedEffect(state.query) { scrollToTop() }
+
     fun jumpTo(letter: String) {
         hintLetter = letter
         val target = jumpTargets[letter] ?: return
