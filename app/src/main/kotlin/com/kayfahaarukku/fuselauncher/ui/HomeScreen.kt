@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import com.kayfahaarukku.fuselauncher.apps.LauncherApp
 import com.kayfahaarukku.fuselauncher.data.AppLayoutType
 import com.kayfahaarukku.fuselauncher.data.Folder
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import androidx.compose.ui.util.lerp
@@ -140,6 +142,10 @@ fun AppsPane(
     // Left alone, the list keeps its first visible app in place: clear a search
     // for "Termux" and the drawer comes back scrolled to T.
     LaunchedEffect(state.query) { scrollToTop() }
+
+    // Home, or a return from another app, is a fresh start: back to the top.
+    // A tab switch is not - the pager keeps this pane composed through it.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { scrollToTop() } }
 
     fun jumpTo(letter: String) {
         hintLetter = letter

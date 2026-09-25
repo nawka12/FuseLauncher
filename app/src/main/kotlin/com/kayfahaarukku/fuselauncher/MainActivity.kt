@@ -129,6 +129,9 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         // An app may have been installed or removed while we were away.
         viewModel.refresh()
+        // Coming back from another app is a fresh start, so the drawer opens on
+        // an empty search box, as on Flutter. The list scrolls itself to the top.
+        viewModel.search("")
     }
 
     /** HOME pressed while already here: unwind back to the plain drawer. */
