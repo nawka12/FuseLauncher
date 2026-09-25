@@ -18,6 +18,7 @@ import com.kayfahaarukku.fuselauncher.data.AppLayoutType
 import com.kayfahaarukku.fuselauncher.data.Folder
 import com.kayfahaarukku.fuselauncher.data.FolderStore
 import com.kayfahaarukku.fuselauncher.data.Settings
+import com.kayfahaarukku.fuselauncher.notifications.AppKey
 import com.kayfahaarukku.fuselauncher.notifications.AppNotification
 import com.kayfahaarukku.fuselauncher.notifications.NotificationListener
 import com.kayfahaarukku.fuselauncher.widgets.HostedWidget
@@ -43,11 +44,14 @@ data class HomeState(
     val sections: List<AppSection> = emptyList(),
     val pinned: List<LauncherApp> = emptyList(),
     val folders: List<Folder> = emptyList(),
-    val notifications: Map<String, List<AppNotification>> = emptyMap(),
+    val notifications: Map<AppKey, List<AppNotification>> = emptyMap(),
     val query: String = "",
     val hidden: Set<String> = emptySet(),
     val loading: Boolean = true,
 ) {
+    fun notificationsFor(app: LauncherApp): List<AppNotification> =
+        notifications[app.packageName to app.userOrCurrent()].orEmpty()
+
     /** Letters the index strip may show; a leading star covers pinned and folders. */
     val indexLetters: List<String>
         get() = buildList {
@@ -129,7 +133,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     val state: StateFlow<HomeState> =
         combine(
-            appInputs, NotificationListener.byPackage, hiddenMode, _prefs, loading,
+            appInputs, NotificationListener.byApp, hiddenMode, _prefs, loading,
         ) { inputs, notifications, mode, preferences, isLoading ->
             // Hiding-related modes work over the hidden set; normal browsing
             // excludes it. Folder members stay out of the main list too, so an

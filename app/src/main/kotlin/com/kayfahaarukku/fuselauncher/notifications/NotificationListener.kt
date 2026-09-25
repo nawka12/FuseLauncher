@@ -2,6 +2,7 @@ package com.kayfahaarukku.fuselauncher.notifications
 
 import android.app.Notification
 import android.content.ComponentName
+import android.os.UserHandle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 /** One notification an app is currently showing. */
 data class AppNotification(
     val packageName: String,
+    /** A cloned or work-profile copy of an app posts as its own user. */
+    val user: UserHandle,
     val key: String,
     val title: String,
     val text: String,
@@ -18,6 +21,9 @@ data class AppNotification(
 ) {
     val hasPreview: Boolean get() = title.isNotEmpty() || text.isNotEmpty()
 }
+
+/** One installed copy of an app: its package, and the user it runs as. */
+typealias AppKey = Pair<String, UserHandle>
 
 /** Notifications the launcher previews: user-visible, dismissible ones. */
 private fun StatusBarNotification.isPreviewable(): Boolean =
@@ -27,6 +33,7 @@ private fun StatusBarNotification.toAppNotification(): AppNotification {
     val extras = notification.extras
     return AppNotification(
         packageName = packageName,
+        user = user,
         key = key,
         title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
         text = (extras.getCharSequence(Notification.EXTRA_TEXT)
@@ -73,25 +80,29 @@ class NotificationListener : NotificationListenerService() {
         var instance: NotificationListener? = null
             private set
 
-        private val _byPackage = MutableStateFlow<Map<String, List<AppNotification>>>(emptyMap())
+        private val _byApp = MutableStateFlow<Map<AppKey, List<AppNotification>>>(emptyMap())
 
         /**
          * Every posted notification, grouped by app and newest first. The whole
          * set is republished on each change, so nothing has to keep a running
          * tally in sync with posts, updates and dismissals.
+         *
+         * Keyed by user as well as package: an app clone (Xiaomi's Dual Apps,
+         * Android's app cloning) or a work-profile copy has the same package
+         * name, and keying on that alone showed each copy the other's messages.
          */
-        val byPackage: StateFlow<Map<String, List<AppNotification>>> = _byPackage
+        val byApp: StateFlow<Map<AppKey, List<AppNotification>>> = _byApp
 
         private fun publish() {
-            _byPackage.value = group(
+            _byApp.value = group(
                 runCatching { instance?.activeNotifications?.toList() }.getOrNull().orEmpty()
             )
         }
 
-        fun group(raw: List<StatusBarNotification>): Map<String, List<AppNotification>> = raw
+        fun group(raw: List<StatusBarNotification>): Map<AppKey, List<AppNotification>> = raw
             .filter { it.isPreviewable() }
             .map { it.toAppNotification() }
-            .groupBy { it.packageName }
+            .groupBy { it.packageName to it.user }
             .mapValues { (_, list) -> list.sortedByDescending { it.postTime } }
     }
 }

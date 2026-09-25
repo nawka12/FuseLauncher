@@ -219,7 +219,7 @@ private fun AppsList(
             AppListRow(
                 app = app,
                 icon = iconFor(app),
-                notifications = state.notifications[app.packageName].orEmpty(),
+                notifications = state.notificationsFor(app),
                 showPreviews = prefs.showPreviews,
                 showBadges = prefs.showBadges,
                 isPinned = pinnedRun,
@@ -287,7 +287,7 @@ private fun AppsGrid(
             AppGridCell(
                 app = app,
                 icon = iconFor(app),
-                notificationCount = state.notifications[app.packageName].orEmpty().size,
+                notificationCount = state.notificationsFor(app).size,
                 showBadges = prefs.showBadges,
                 selected = null,
                 onClick = { onLaunch(app) },
@@ -315,7 +315,7 @@ private fun AppsGrid(
             AppGridCell(
                 app = app,
                 icon = iconFor(app),
-                notificationCount = state.notifications[app.packageName].orEmpty().size,
+                notificationCount = state.notificationsFor(app).size,
                 showBadges = prefs.showBadges,
                 selected = if (hiddenMode == HiddenMode.SELECTING) {
                     app.packageName in state.hidden

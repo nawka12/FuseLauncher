@@ -45,7 +45,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kayfahaarukku.fuselauncher.apps.DoubleSwipe
 import com.kayfahaarukku.fuselauncher.apps.LauncherApp
 import com.kayfahaarukku.fuselauncher.data.Folder
-import com.kayfahaarukku.fuselauncher.notifications.AppNotification
 import kotlinx.coroutines.launch
 
 /** Modal layered over the drawer; only one is ever open. */
@@ -199,7 +198,7 @@ fun LauncherRoot(
                     folder != null -> FolderPane(
                         folder = folder,
                         apps = viewModel.appsIn(folder),
-                        notifications = state.notifications,
+                        notificationCount = { state.notificationsFor(it).size },
                         prefs = prefs,
                         iconFor = viewModel::icon,
                         onLaunch = viewModel::launch,
@@ -385,7 +384,7 @@ fun LauncherRoot(
         is Overlay.Notifications -> NotificationPopup(
             appName = current.app.label,
             icon = viewModel.icon(current.app),
-            notifications = state.notifications[current.app.packageName].orEmpty(),
+            notifications = state.notificationsFor(current.app),
             onOpen = { notification ->
                 overlay = null
                 onOpenNotification(notification.key)
@@ -429,7 +428,7 @@ private fun HiddenModeBar(title: String, action: String, onAction: () -> Unit) =
 private fun FolderPane(
     folder: Folder,
     apps: List<LauncherApp>,
-    notifications: Map<String, List<AppNotification>>,
+    notificationCount: (LauncherApp) -> Int,
     prefs: Prefs,
     iconFor: (LauncherApp) -> androidx.compose.ui.graphics.ImageBitmap?,
     onLaunch: (LauncherApp) -> Unit,
@@ -467,7 +466,7 @@ private fun FolderPane(
             AppGridCell(
                 app = app,
                 icon = iconFor(app),
-                notificationCount = notifications[app.packageName].orEmpty().size,
+                notificationCount = notificationCount(app),
                 showBadges = prefs.showBadges,
                 selected = null,
                 onClick = { onLaunch(app) },
