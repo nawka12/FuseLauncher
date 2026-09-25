@@ -350,7 +350,8 @@ fun LauncherRoot(
         )
 
         is Overlay.NewFolder -> FolderNameDialog(
-            title = "New folder",
+            title = "New Folder",
+            confirmLabel = "Create",
             onConfirm = { name ->
                 if (folderNameTaken(name)) {
                     notify(FOLDER_EXISTS)
@@ -370,7 +371,8 @@ fun LauncherRoot(
         )
 
         is Overlay.RenameFolder -> FolderNameDialog(
-            title = "Rename folder",
+            title = "Rename Folder",
+            confirmLabel = "Rename",
             initial = current.folder.name,
             onConfirm = { name ->
                 if (folderNameTaken(name, renaming = current.folder)) {
@@ -384,9 +386,11 @@ fun LauncherRoot(
         )
 
         is Overlay.DeleteFolder -> ConfirmDialog(
-            title = "Delete folder",
-            message = "Apps in \"${current.folder.name}\" go back to the main list.",
+            title = "Delete Folder",
+            message = "Are you sure you want to delete the \"${current.folder.name}\" folder? " +
+                "The apps inside will be moved to the main app list.",
             confirmLabel = "Delete",
+            destructive = true,
             onConfirm = {
                 viewModel.deleteFolder(current.folder)
                 overlay = null
@@ -397,7 +401,8 @@ fun LauncherRoot(
         is Overlay.RemoveAllWidgets -> ConfirmDialog(
             title = "Clear All Widgets",
             message = "Are you sure you want to remove all widgets?",
-            confirmLabel = "Remove",
+            confirmLabel = "Remove All",
+            destructive = true,
             onConfirm = {
                 viewModel.removeAllWidgets()
                 overlay = null

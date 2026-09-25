@@ -135,6 +135,7 @@ fun MoveToFolderSheet(
 @Composable
 fun FolderNameDialog(
     title: String,
+    confirmLabel: String,
     initial: String = "",
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -156,12 +157,13 @@ fun FolderNameDialog(
             TextButton(
                 onClick = { onConfirm(name.trim()) },
                 enabled = name.isNotBlank(),
-            ) { Text("Save") }
+            ) { Text(confirmLabel) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
+/** [destructive] paints the confirm label red, as Flutter's delete buttons were. */
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -169,10 +171,15 @@ fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    destructive: Boolean = false,
 ) = AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text(title) },
     text = { Text(message) },
-    confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
+    confirmButton = {
+        TextButton(onClick = onConfirm) {
+            Text(confirmLabel, color = if (destructive) BadgeRed else Color.Unspecified)
+        }
+    },
     dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
 )
