@@ -110,11 +110,9 @@ fun LauncherRoot(
             openFolder != null -> viewModel.openFolder.value = null
             screen != Screen.HOME -> viewModel.screen.value =
                 if (screen == Screen.ABOUT) Screen.SETTINGS else Screen.HOME
-            hiddenMode != HiddenMode.OFF -> {
-                viewModel.hiddenMode.value = HiddenMode.OFF
-                viewModel.search("")
-            }
+            // A search clears before the hidden list closes, as on Flutter.
             state.query.isNotEmpty() -> viewModel.search("")
+            hiddenMode != HiddenMode.OFF -> viewModel.hiddenMode.value = HiddenMode.OFF
             tab != HomeTab.APPS -> viewModel.tab.value = HomeTab.APPS
             else -> Unit
         }
