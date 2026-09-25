@@ -64,7 +64,7 @@ data class HomeState(
 data class Prefs(
     val layout: AppLayoutType = AppLayoutType.LIST,
     val gridColumns: Int = 4,
-    val searchBarAtTop: Boolean = false,
+    val searchBarAtTop: Boolean = true,
     val showBadges: Boolean = true,
     val showPreviews: Boolean = true,
     val appListSort: AppListSortType = AppListSortType.ALPHABETICAL_ASC,

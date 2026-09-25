@@ -62,8 +62,9 @@ class Settings(context: Context) {
 
     // -- chrome ------------------------------------------------------------
 
+    /** Top unless moved, as on Flutter. */
     var searchBarAtTop: Boolean
-        get() = prefs.getBoolean(KEY_SEARCH_TOP, false)
+        get() = prefs.getBoolean(KEY_SEARCH_TOP, true)
         set(value) = prefs.edit { putBoolean(KEY_SEARCH_TOP, value) }
 
     var showNotificationBadges: Boolean
