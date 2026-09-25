@@ -235,11 +235,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun isPinned(app: LauncherApp) = app.packageName in pinned.value
 
-    /** Returns a message when the pin could not be added, null on success. */
+    /**
+     * Returns a message when the pin could not be added, null on success.
+     * Pins of uninstalled apps are dropped first, so they stop counting toward
+     * the limit while showing nothing - Flutter removed them with the app.
+     */
     fun togglePin(app: LauncherApp): String? =
         when (
             val result = PinRules.toggle(
-                current = pinned.value,
+                current = pinned.value.filter { pkg -> allApps.value.any { it.packageName == pkg } },
                 packageName = app.packageName,
                 isHidden = app.packageName in hidden.value,
             )
