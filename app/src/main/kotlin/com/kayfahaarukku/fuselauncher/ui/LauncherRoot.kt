@@ -108,6 +108,10 @@ fun LauncherRoot(
 
     fun notify(message: String) = scope.launch { snackbars.showSnackbar(message) }
 
+    /** Flutter refused a second folder of the same name, ignoring case. */
+    fun folderNameTaken(name: String, renaming: Folder? = null) = viewModel.allFolders()
+        .any { it.id != renaming?.id && it.name.equals(name, ignoreCase = true) }
+
     // Back unwinds one layer at a time and never leaves the launcher: on the
     // bare drawer there is nowhere to go, so it is simply swallowed.
     BackHandler(enabled = true) {
@@ -347,8 +351,12 @@ fun LauncherRoot(
         is Overlay.NewFolder -> FolderNameDialog(
             title = "New folder",
             onConfirm = { name ->
-                viewModel.createFolder(name, current.app)
-                overlay = null
+                if (folderNameTaken(name)) {
+                    notify(FOLDER_EXISTS)
+                } else {
+                    viewModel.createFolder(name, current.app)
+                    overlay = null
+                }
             },
             onDismiss = { overlay = null },
         )
@@ -357,8 +365,12 @@ fun LauncherRoot(
             title = "Rename folder",
             initial = current.folder.name,
             onConfirm = { name ->
-                viewModel.renameFolder(current.folder, name)
-                overlay = null
+                if (folderNameTaken(name, renaming = current.folder)) {
+                    notify(FOLDER_EXISTS)
+                } else {
+                    viewModel.renameFolder(current.folder, name)
+                    overlay = null
+                }
             },
             onDismiss = { overlay = null },
         )
@@ -480,6 +492,8 @@ private fun FolderPane(
     }
 }
 
+
+private const val FOLDER_EXISTS = "A folder with this name already exists."
 
 /** Matches the Flutter build's forward page transition. */
 private const val PAGE_MS = 300
