@@ -171,7 +171,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 } else {
                     emptyList()
                 },
-                folders = if (showsTopRow) inputs.folders else emptyList(),
+                folders = if (showsTopRow) installedOnly(inputs.folders, inputs.apps) else emptyList(),
                 notifications = notifications,
                 query = inputs.query,
                 hidden = inputs.hidden,
@@ -281,7 +281,18 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     // -- folders -----------------------------------------------------------
 
     /** Every folder, regardless of what the drawer is currently filtered to. */
-    fun allFolders(): List<Folder> = folders.value
+    fun allFolders(): List<Folder> = installedOnly(folders.value, allApps.value)
+
+    /**
+     * Folders as the user sees them: an uninstalled member neither shows nor
+     * counts, as on Flutter. The next edit to the folder writes it out for good.
+     */
+    private fun installedOnly(folders: List<Folder>, apps: List<LauncherApp>): List<Folder> {
+        val installed = apps.mapTo(HashSet()) { it.packageName }
+        return folders.map { folder ->
+            folder.copy(packageNames = folder.packageNames.filter { it in installed })
+        }
+    }
 
     fun folderOf(app: LauncherApp): Folder? =
         folders.value.firstOrNull { app.packageName in it.packageNames }
