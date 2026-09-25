@@ -137,13 +137,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         ) { inputs, notifications, mode, preferences, isLoading ->
             // Hiding-related modes work over the hidden set; normal browsing
             // excludes it. Folder members stay out of the main list too, so an
-            // app never appears in both places.
+            // app never appears in both places - but a search still finds them,
+            // as it did on Flutter.
             val inFolders = inputs.folders.flatMap { it.packageNames }.toSet()
             val visible = when (mode) {
                 HiddenMode.VIEWING -> inputs.apps.filter { it.packageName in inputs.hidden }
                 HiddenMode.SELECTING -> inputs.apps
                 HiddenMode.OFF -> inputs.apps.filterNot {
-                    it.packageName in inputs.hidden || it.packageName in inFolders
+                    it.packageName in inputs.hidden ||
+                        (inputs.query.isEmpty() && it.packageName in inFolders)
                 }
             }
 
