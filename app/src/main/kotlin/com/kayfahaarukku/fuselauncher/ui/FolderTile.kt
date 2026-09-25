@@ -16,14 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kayfahaarukku.fuselauncher.data.Folder
-
-private val Amber = Color(0xFFFFC107)
 
 /** Folder in the grid layout, sized to match an app cell beside it. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -44,10 +41,10 @@ fun FolderGridCell(
         Modifier
             .size(56.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Amber.copy(alpha = 0.1f)),
+            .background(FolderAmber.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.Folder, null, tint = Amber, modifier = Modifier.size(32.dp))
+        Icon(Icons.Filled.Folder, null, tint = FolderAmber, modifier = Modifier.size(32.dp))
     }
     Text(
         folder.name,

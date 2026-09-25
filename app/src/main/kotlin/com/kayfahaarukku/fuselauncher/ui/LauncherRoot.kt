@@ -54,6 +54,7 @@ private sealed interface Overlay {
     data object Sort : Overlay
     data class MoveToFolder(val app: LauncherApp) : Overlay
     data class NewFolder(val app: LauncherApp?) : Overlay
+    data class FolderOptions(val folder: Folder) : Overlay
     data class RenameFolder(val folder: Folder) : Overlay
     data class DeleteFolder(val folder: Folder) : Overlay
     data object AddWidget : Overlay
@@ -231,7 +232,7 @@ fun LauncherRoot(
                             viewModel.setHidden(app, app.id !in state.hidden)
                         },
                         onOpenFolder = { viewModel.openFolder.value = it },
-                        onFolderLongPress = { overlay = Overlay.RenameFolder(it) },
+                        onFolderLongPress = { overlay = Overlay.FolderOptions(it) },
                         onSearch = viewModel::search,
                         onSort = { overlay = Overlay.Sort },
                         onSettings = { viewModel.screen.value = Screen.SETTINGS },
@@ -258,7 +259,7 @@ fun LauncherRoot(
                                         viewModel.setHidden(app, app.id !in state.hidden)
                                     },
                                     onOpenFolder = { viewModel.openFolder.value = it },
-                                    onFolderLongPress = { overlay = Overlay.RenameFolder(it) },
+                                    onFolderLongPress = { overlay = Overlay.FolderOptions(it) },
                                     onSearch = viewModel::search,
                                     onSort = { overlay = Overlay.Sort },
                                     onSettings = { viewModel.screen.value = Screen.SETTINGS },
@@ -358,6 +359,13 @@ fun LauncherRoot(
                     overlay = null
                 }
             },
+            onDismiss = { overlay = null },
+        )
+
+        is Overlay.FolderOptions -> FolderOptionsSheet(
+            folder = current.folder,
+            onRename = { overlay = Overlay.RenameFolder(current.folder) },
+            onDelete = { overlay = Overlay.DeleteFolder(current.folder) },
             onDismiss = { overlay = null },
         )
 

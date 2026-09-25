@@ -1,6 +1,9 @@
 package com.kayfahaarukku.fuselauncher.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -37,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kayfahaarukku.fuselauncher.apps.LauncherApp
+import com.kayfahaarukku.fuselauncher.data.Folder
 
 /** What the long-press sheet can do to an app. */
 sealed interface AppAction {
@@ -63,10 +69,7 @@ fun AppOptionsSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-            ) {
+            SheetTitle(app.label, app.packageName) {
                 if (icon != null) {
                     Image(
                         bitmap = icon,
@@ -75,23 +78,6 @@ fun AppOptionsSheet(
                     )
                 } else {
                     Spacer(Modifier.size(40.dp))
-                }
-                Spacer(Modifier.width(15.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        app.label,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        app.packageName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
 
@@ -128,6 +114,61 @@ fun AppOptionsSheet(
                 }
             }
         }
+    }
+}
+
+/** Long-press on a folder: rename or delete it, the sheet Flutter showed. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FolderOptionsSheet(
+    folder: Folder,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.navigationBarsPadding()) {
+            val count = folder.packageNames.size
+            SheetTitle(folder.name, "$count app${if (count == 1) "" else "s"}") {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSystemInDarkTheme()) Color(0xFF424242) else Color(0xFFE0E0E0)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Folder, null, tint = FolderAmber, modifier = Modifier.size(24.dp))
+                }
+            }
+            SheetItem(Icons.Filled.Edit, "Rename", onClick = onRename)
+            SheetItem(Icons.Filled.Delete, "Delete Folder", BadgeRed, onClick = onDelete)
+        }
+    }
+}
+
+/** Icon, bold name and a faint second line, heading both long-press sheets. */
+@Composable
+private fun SheetTitle(title: String, subtitle: String, icon: @Composable () -> Unit) = Row(
+    verticalAlignment = Alignment.CenterVertically,
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+) {
+    icon()
+    Spacer(Modifier.width(15.dp))
+    Column(Modifier.weight(1f)) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -56,7 +56,6 @@ private val ICON = 56.dp
 private val ICON_CORNER = 12.dp
 private val ROW_PADDING_H = 16.dp
 private val ROW_PADDING_V = 4.dp
-private val Amber = Color(0xFFFFC107)
 
 @Composable
 fun AppIcon(icon: ImageBitmap?, label: String, size: androidx.compose.ui.unit.Dp = ICON) {
@@ -285,10 +284,10 @@ fun FolderListRow(
         Modifier
             .size(ICON)
             .clip(RoundedCornerShape(ICON_CORNER))
-            .background(Amber.copy(alpha = 0.1f)),
+            .background(FolderAmber.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.Folder, null, tint = Amber, modifier = Modifier.size(32.dp))
+        Icon(Icons.Filled.Folder, null, tint = FolderAmber, modifier = Modifier.size(32.dp))
     }
 
     Spacer(Modifier.width(16.dp))

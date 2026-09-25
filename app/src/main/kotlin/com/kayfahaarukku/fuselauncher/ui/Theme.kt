@@ -24,6 +24,9 @@ private val Purple = Color(0xFF6750A4)
  */
 val BadgeRed = Color(0xFFF44336)
 
+/** Flutter's `Colors.amber`, which every folder icon used. */
+val FolderAmber = Color(0xFFFFC107)
+
 /** Popup and sheet surfaces, matching the Flutter build's hard-coded greys. */
 val PopupSurface = Color(0xFF252525)
 private val PurpleLight = Color(0xFFD0BCFF)
