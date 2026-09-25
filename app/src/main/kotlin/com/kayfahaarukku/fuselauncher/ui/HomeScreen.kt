@@ -249,7 +249,7 @@ private fun AppsList(
                 showBadges = prefs.showBadges,
                 isPinned = pinnedRun,
                 selected = if (hiddenMode == HiddenMode.SELECTING) {
-                    app.packageName in state.hidden
+                    app.id in state.hidden
                 } else null,
                 onClick = {
                     if (hiddenMode == HiddenMode.SELECTING) onToggleHidden(app) else onLaunch(app)
@@ -343,7 +343,7 @@ private fun AppsGrid(
                 notificationCount = state.notificationsFor(app).size,
                 showBadges = prefs.showBadges,
                 selected = if (hiddenMode == HiddenMode.SELECTING) {
-                    app.packageName in state.hidden
+                    app.id in state.hidden
                 } else null,
                 onClick = {
                     if (hiddenMode == HiddenMode.SELECTING) onToggleHidden(app) else onLaunch(app)

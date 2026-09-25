@@ -85,7 +85,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val hidden = MutableStateFlow(settings.hiddenApps)
 
     /**
-     * Pinned packages as a flow, not a read off Settings inside the combine.
+     * Pinned app ids as a flow, not a read off Settings inside the combine.
      * StateFlow drops equal values, so reloading an unchanged app list emits
      * nothing and a pin written only to Settings would never reach the UI.
      */
@@ -142,11 +142,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             // as it did on Flutter.
             val inFolders = inputs.folders.flatMap { it.packageNames }.toSet()
             val visible = when (mode) {
-                HiddenMode.VIEWING -> inputs.apps.filter { it.packageName in inputs.hidden }
+                HiddenMode.VIEWING -> inputs.apps.filter { it.id in inputs.hidden }
                 HiddenMode.SELECTING -> inputs.apps
                 HiddenMode.OFF -> inputs.apps.filterNot {
-                    it.packageName in inputs.hidden ||
-                        (inputs.query.isEmpty() && it.packageName in inFolders)
+                    it.id in inputs.hidden ||
+                        (inputs.query.isEmpty() && it.id in inFolders)
                 }
             }
 
@@ -162,10 +162,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 pinned = if (showsTopRow) {
                     usage.sortedPinned(
-                        inputs.pinned.mapNotNull { pkg ->
-                            inputs.apps.firstOrNull {
-                                it.packageName == pkg && it.packageName !in inputs.hidden
-                            }
+                        inputs.pinned.mapNotNull { id ->
+                            inputs.apps.firstOrNull { it.id == id && it.id !in inputs.hidden }
                         },
                         preferences.pinnedSort,
                     )
@@ -221,7 +219,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun launch(app: LauncherApp) {
-        usage.recordLaunch(app.packageName)
+        usage.recordLaunch(app.id)
         repository.launch(app)
     }
 
@@ -233,7 +231,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun icon(app: LauncherApp) = IconCache.get(app.key) { repository.icon(app) }
 
-    fun isPinned(app: LauncherApp) = app.packageName in pinned.value
+    fun isPinned(app: LauncherApp) = app.id in pinned.value
 
     /**
      * Returns a message when the pin could not be added, null on success.
@@ -243,9 +241,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun togglePin(app: LauncherApp): String? =
         when (
             val result = PinRules.toggle(
-                current = pinned.value.filter { pkg -> allApps.value.any { it.packageName == pkg } },
-                packageName = app.packageName,
-                isHidden = app.packageName in hidden.value,
+                current = pinned.value.filter { id -> allApps.value.any { it.id == id } },
+                id = app.id,
+                isHidden = app.id in hidden.value,
             )
         ) {
             is PinResult.Changed -> {
@@ -267,24 +265,24 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * restored: the Flutter build made the user pin it again deliberately.
      */
     fun setHidden(app: LauncherApp, hide: Boolean) = viewModelScope.launch {
-        val pkg = app.packageName
+        val appId = app.id
         if (hide) {
-            settings.hiddenApps = settings.hiddenApps + pkg
+            settings.hiddenApps = settings.hiddenApps + appId
             hidden.value = settings.hiddenApps
-            setPinned(pinned.value - pkg)
+            setPinned(pinned.value - appId)
             withContext(Dispatchers.IO) {
-                folderStore.all().firstOrNull { pkg in it.packageNames }?.let { folder ->
-                    settings.rememberHiddenFolder(pkg, folder.id)
-                    folderStore.update(folder.copy(packageNames = folder.packageNames - pkg))
+                folderStore.all().firstOrNull { appId in it.packageNames }?.let { folder ->
+                    settings.rememberHiddenFolder(appId, folder.id)
+                    folderStore.update(folder.copy(packageNames = folder.packageNames - appId))
                 }
             }
         } else {
-            settings.hiddenApps = settings.hiddenApps - pkg
+            settings.hiddenApps = settings.hiddenApps - appId
             hidden.value = settings.hiddenApps
             withContext(Dispatchers.IO) {
-                settings.forgetHiddenFolder(pkg)?.let { folderId ->
+                settings.forgetHiddenFolder(appId)?.let { folderId ->
                     folderStore.all().firstOrNull { it.id == folderId }?.let { folder ->
-                        folderStore.update(folder.copy(packageNames = folder.packageNames + pkg))
+                        folderStore.update(folder.copy(packageNames = folder.packageNames + appId))
                     }
                 }
             }
@@ -302,21 +300,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * counts, as on Flutter. The next edit to the folder writes it out for good.
      */
     private fun installedOnly(folders: List<Folder>, apps: List<LauncherApp>): List<Folder> {
-        val installed = apps.mapTo(HashSet()) { it.packageName }
+        val installed = apps.mapTo(HashSet()) { it.id }
         return folders.map { folder ->
             folder.copy(packageNames = folder.packageNames.filter { it in installed })
         }
     }
 
     fun folderOf(app: LauncherApp): Folder? =
-        folders.value.firstOrNull { app.packageName in it.packageNames }
+        folders.value.firstOrNull { app.id in it.packageNames }
 
     fun appsIn(folder: Folder): List<LauncherApp> =
-        folder.packageNames.mapNotNull { pkg -> allApps.value.firstOrNull { it.packageName == pkg } }
+        folder.packageNames.mapNotNull { id -> allApps.value.firstOrNull { it.id == id } }
 
     fun createFolder(name: String, firstApp: LauncherApp?) = viewModelScope.launch {
         withContext(Dispatchers.IO) {
-            folderStore.insert(name, listOfNotNull(firstApp?.packageName))
+            folderStore.insert(name, listOfNotNull(firstApp?.id))
         }
         refresh()
     }
@@ -336,14 +334,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         withContext(Dispatchers.IO) {
             // An app belongs to one folder; drop it from any other first.
             folderStore.all().forEach { existing ->
-                if (app.packageName in existing.packageNames && existing.id != folder.id) {
+                if (app.id in existing.packageNames && existing.id != folder.id) {
                     folderStore.update(
-                        existing.copy(packageNames = existing.packageNames - app.packageName)
+                        existing.copy(packageNames = existing.packageNames - app.id)
                     )
                 }
             }
             folderStore.update(
-                folder.copy(packageNames = folder.packageNames + app.packageName)
+                folder.copy(packageNames = folder.packageNames + app.id)
             )
         }
         refresh()
@@ -351,9 +349,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeFromFolder(app: LauncherApp) = viewModelScope.launch {
         withContext(Dispatchers.IO) {
-            folderStore.all().firstOrNull { app.packageName in it.packageNames }?.let { folder ->
+            folderStore.all().firstOrNull { app.id in it.packageNames }?.let { folder ->
                 folderStore.update(
-                    folder.copy(packageNames = folder.packageNames - app.packageName)
+                    folder.copy(packageNames = folder.packageNames - app.id)
                 )
             }
         }

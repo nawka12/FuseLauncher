@@ -2,6 +2,7 @@ package com.kayfahaarukku.fuselauncher.data
 
 import com.kayfahaarukku.fuselauncher.apps.AppListSortType
 import com.kayfahaarukku.fuselauncher.apps.PinnedAppsSortType
+import com.kayfahaarukku.fuselauncher.apps.appId
 import com.kayfahaarukku.fuselauncher.data.Settings.Companion.orderedKeys
 import com.kayfahaarukku.fuselauncher.data.Settings.Companion.toIndexedJson
 import com.kayfahaarukku.fuselauncher.data.Settings.Companion.toIntMap
@@ -59,6 +60,15 @@ class SettingsMigrationTest {
             Settings.appListSortFromDart("garbage"),
         )
         assertEquals(PinnedAppsSortType.USAGE, Settings.pinnedSortFromDart("garbage"))
+    }
+
+    @Test
+    fun `a stored package name still means the main profile's copy`() {
+        // Flutter stored bare package names for pins, hidden apps, folders and
+        // usage. The current user's copy must keep exactly that id, and a clone
+        // must not collide with it.
+        assertEquals("com.whatsapp", appId("com.whatsapp", profileSerial = null))
+        assertEquals("com.whatsapp@11", appId("com.whatsapp", profileSerial = 11))
     }
 
     @Test

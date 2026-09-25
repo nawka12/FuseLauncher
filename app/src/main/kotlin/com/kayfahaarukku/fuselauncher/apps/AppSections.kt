@@ -37,7 +37,7 @@ fun sortFolders(
     AppListSortType.ALPHABETICAL_DESC -> folders.sortedByDescending { it.name.lowercase() }
     AppListSortType.USAGE -> {
         val rank = HashMap<String, Int>()
-        usageOrder().forEachIndexed { i, app -> rank.putIfAbsent(app.packageName, i) }
+        usageOrder().forEachIndexed { i, app -> rank.putIfAbsent(app.id, i) }
         folders.sortedWith(
             compareBy<Folder> { folder ->
                 folder.packageNames.minOfOrNull { rank[it] ?: Int.MAX_VALUE } ?: Int.MAX_VALUE

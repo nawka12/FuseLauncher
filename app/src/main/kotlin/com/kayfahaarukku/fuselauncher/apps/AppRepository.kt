@@ -6,6 +6,7 @@ import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.UserHandle
+import android.os.UserManager
 import androidx.compose.runtime.Immutable
 
 @Immutable
@@ -15,11 +16,25 @@ data class LauncherApp(
     val label: String,
     /** null means the current user - keeps the type free of Android for tests. */
     val user: UserHandle? = null,
+    /**
+     * What pins, hidden apps, folders and usage counts store for this app. The
+     * current user's copy is its bare package name, exactly what Flutter stored,
+     * so migrated data still means the same app. A clone or work-profile copy
+     * has the same package name, so its id adds the profile: "com.whatsapp@11".
+     */
+    val id: String = packageName,
 ) {
     val key: String get() = "$componentName@${user?.hashCode() ?: 0}"
 
     fun userOrCurrent(): UserHandle = user ?: Process.myUserHandle()
 }
+
+/**
+ * [LauncherApp.id] for one copy of [packageName]: bare for the current user,
+ * which is what Flutter stored, or with a clone's or work copy's profile serial.
+ */
+fun appId(packageName: String, profileSerial: Long?): String =
+    if (profileSerial == null) packageName else "$packageName@$profileSerial"
 
 /**
  * The installed app list, straight from LauncherApps.
@@ -34,16 +49,24 @@ class AppRepository(private val context: Context) {
     private val launcherApps =
         context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
     private val packageManager = context.packageManager
+    private val userManager = context.getSystemService(UserManager::class.java)
 
     fun loadApps(): List<LauncherApp> {
         val excluded = otherLaunchers() + context.packageName
+        val me = Process.myUserHandle()
         return launcherApps.profiles.flatMap { user ->
+            // A serial number, not the user id: ids are reused once a profile
+            // is removed, serials never are, so a stale entry cannot come back
+            // attached to some new profile's app.
+            val serial = if (user == me) null else userManager.getSerialNumberForUser(user)
             launcherApps.getActivityList(null, user).map { activity ->
+                val packageName = activity.applicationInfo.packageName
                 LauncherApp(
-                    packageName = activity.applicationInfo.packageName,
+                    packageName = packageName,
                     componentName = activity.componentName.flattenToString(),
                     label = activity.label.toString(),
                     user = user,
+                    id = appId(packageName, serial),
                 )
             }
         }.filterNot { it.packageName in excluded }

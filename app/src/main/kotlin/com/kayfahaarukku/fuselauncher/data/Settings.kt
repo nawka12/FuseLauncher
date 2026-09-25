@@ -30,7 +30,11 @@ class Settings(context: Context) {
 
     // -- app list ----------------------------------------------------------
 
-    /** Package names in pin order. */
+    /**
+     * App ids in pin order. Here and in the hidden set, folders and usage an id
+     * is a [com.kayfahaarukku.fuselauncher.apps.LauncherApp.id]: the package
+     * name Flutter stored, or for a clone the package name and its profile.
+     */
     var pinnedApps: List<String>
         get() = prefs.getString(KEY_PINNED, null).orderedKeys()
         set(value) = prefs.edit { putString(KEY_PINNED, value.toIndexedJson()) }
@@ -112,18 +116,18 @@ class Settings(context: Context) {
 
     /**
      * Which folder an app sat in before it was hidden, so unhiding can put it
-     * back. Keyed by package; the value is a folder row id.
+     * back. Keyed by app id; the value is a folder row id.
      */
-    fun rememberHiddenFolder(packageName: String, folderId: Long) {
+    fun rememberHiddenFolder(appId: String, folderId: Long) {
         val map = hiddenFolderMap().toMutableMap()
-        map[packageName] = folderId
+        map[appId] = folderId
         writeHiddenFolderMap(map)
     }
 
     /** Returns the remembered folder and drops the entry. */
-    fun forgetHiddenFolder(packageName: String): Long? {
+    fun forgetHiddenFolder(appId: String): Long? {
         val map = hiddenFolderMap().toMutableMap()
-        val folderId = map.remove(packageName)
+        val folderId = map.remove(appId)
         writeHiddenFolderMap(map)
         return folderId
     }

@@ -228,7 +228,7 @@ fun LauncherRoot(
                         onLongPress = { overlay = Overlay.Options(it) },
                         onShowNotifications = { overlay = Overlay.Notifications(it) },
                         onToggleHidden = { app ->
-                            viewModel.setHidden(app, app.packageName !in state.hidden)
+                            viewModel.setHidden(app, app.id !in state.hidden)
                         },
                         onOpenFolder = { viewModel.openFolder.value = it },
                         onFolderLongPress = { overlay = Overlay.RenameFolder(it) },
@@ -255,7 +255,7 @@ fun LauncherRoot(
                                     onLongPress = { overlay = Overlay.Options(it) },
                                     onShowNotifications = { overlay = Overlay.Notifications(it) },
                                     onToggleHidden = { app ->
-                                        viewModel.setHidden(app, app.packageName !in state.hidden)
+                                        viewModel.setHidden(app, app.id !in state.hidden)
                                     },
                                     onOpenFolder = { viewModel.openFolder.value = it },
                                     onFolderLongPress = { overlay = Overlay.RenameFolder(it) },
@@ -309,7 +309,7 @@ fun LauncherRoot(
             app = current.app,
             icon = viewModel.icon(current.app),
             isPinned = viewModel.isPinned(current.app),
-            isHidden = current.app.packageName in state.hidden,
+            isHidden = current.app.id in state.hidden,
             isSystemApp = viewModel.isSystemApp(current.app),
             inFolder = viewModel.folderOf(current.app)?.name,
             onDismiss = { overlay = null },
@@ -323,7 +323,7 @@ fun LauncherRoot(
                     AppAction.AppInfo -> viewModel.openAppInfo(app)
                     AppAction.Uninstall ->
                         viewModel.uninstallIntent(app)?.let(onLaunchIntent)
-                            ?: notify("Work profile apps must be removed from settings")
+                            ?: notify("Clone and work profile apps must be removed from Settings")
                     AppAction.MoveToFolder -> overlay = Overlay.MoveToFolder(app)
                     AppAction.RemoveFromFolder -> viewModel.removeFromFolder(app)
                 }

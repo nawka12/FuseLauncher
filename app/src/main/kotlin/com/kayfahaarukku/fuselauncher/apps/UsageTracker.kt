@@ -11,12 +11,13 @@ import kotlin.math.roundToInt
  */
 class UsageTracker(private val settings: Settings) {
 
-    fun recordLaunch(packageName: String) {
+    /** [id] is a [LauncherApp.id], so a clone keeps a count of its own. */
+    fun recordLaunch(id: String) {
         val counts = settings.usageCounts.toMutableMap()
-        counts[packageName] = ((counts[packageName] ?: 0) + 1).coerceAtMost(MAX_HISTORY)
+        counts[id] = ((counts[id] ?: 0) + 1).coerceAtMost(MAX_HISTORY)
 
         for (key in counts.keys.toList()) {
-            if (key == packageName) continue
+            if (key == id) continue
             counts[key] = ((counts.getValue(key) * DECAY).roundToInt()).coerceAtLeast(FLOOR)
         }
 
@@ -49,13 +50,13 @@ class UsageTracker(private val settings: Settings) {
     private fun byUsage(): Comparator<LauncherApp> {
         val counts = settings.usageCounts
         val tieOrders = settings.tieOrders
-        fun count(app: LauncherApp) = counts[app.packageName] ?: 0
+        fun count(app: LauncherApp) = counts[app.id] ?: 0
         return Comparator { a, b ->
             val byCount = count(b).compareTo(count(a))
             if (byCount != 0) return@Comparator byCount
             if (count(a) == FLOOR) {
-                val byTie = (tieOrders[a.packageName] ?: NO_TIE)
-                    .compareTo(tieOrders[b.packageName] ?: NO_TIE)
+                val byTie = (tieOrders[a.id] ?: NO_TIE)
+                    .compareTo(tieOrders[b.id] ?: NO_TIE)
                 if (byTie != 0) return@Comparator byTie
             }
             a.label.lowercase().compareTo(b.label.lowercase())

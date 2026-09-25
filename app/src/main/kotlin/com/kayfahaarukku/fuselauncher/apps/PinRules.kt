@@ -17,13 +17,13 @@ object PinRules {
 
     fun toggle(
         current: List<String>,
-        packageName: String,
+        id: String,
         isHidden: Boolean,
         max: Int = MAX_PINNED,
     ): PinResult = when {
-        packageName in current -> PinResult.Changed(current - packageName)
+        id in current -> PinResult.Changed(current - id)
         isHidden -> PinResult.Refused("Hidden apps cannot be pinned")
         current.size >= max -> PinResult.Refused("Maximum $max apps can be pinned")
-        else -> PinResult.Changed(current + packageName)
+        else -> PinResult.Changed(current + id)
     }
 }

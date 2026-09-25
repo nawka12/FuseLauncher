@@ -8,6 +8,10 @@ import org.json.JSONArray
 data class Folder(
     val id: Long,
     val name: String,
+    /**
+     * Members by [com.kayfahaarukku.fuselauncher.apps.LauncherApp.id]: package
+     * names, as Flutter wrote them, except that a clone's carries its profile.
+     */
     val packageNames: List<String>,
 )
 
