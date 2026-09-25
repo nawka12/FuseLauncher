@@ -14,6 +14,7 @@ import com.kayfahaarukku.fuselauncher.apps.PinnedAppsSortType
 import com.kayfahaarukku.fuselauncher.apps.UsageTracker
 import com.kayfahaarukku.fuselauncher.apps.createSections
 import com.kayfahaarukku.fuselauncher.apps.searchApps
+import com.kayfahaarukku.fuselauncher.apps.sortFolders
 import com.kayfahaarukku.fuselauncher.data.AppLayoutType
 import com.kayfahaarukku.fuselauncher.data.Folder
 import com.kayfahaarukku.fuselauncher.data.FolderStore
@@ -171,7 +172,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 } else {
                     emptyList()
                 },
-                folders = if (showsTopRow) installedOnly(inputs.folders, inputs.apps) else emptyList(),
+                folders = if (showsTopRow) {
+                    sortFolders(installedOnly(inputs.folders, inputs.apps), preferences.appListSort) {
+                        usage.sorted(inputs.apps, AppListSortType.USAGE)
+                    }
+                } else {
+                    emptyList()
+                },
                 notifications = notifications,
                 query = inputs.query,
                 hidden = inputs.hidden,
