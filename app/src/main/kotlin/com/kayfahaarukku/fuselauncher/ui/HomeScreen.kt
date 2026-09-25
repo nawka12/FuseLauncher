@@ -274,7 +274,7 @@ private fun AppsList(
     }
 
     state.sections.forEach { section ->
-        if (section.letter.isNotEmpty()) {
+        if (section.letter.isNotEmpty() && state.listShowsLetters) {
             item(key = "h-${section.letter}") { SectionHeader(section.letter) }
         }
         appRows(section.apps, pinnedRun = false)
@@ -530,7 +530,7 @@ private fun indexTargets(state: HomeState, prefs: Prefs): Map<String, Int> {
     }
 
     state.sections.forEach { section ->
-        if (section.letter.isNotEmpty()) {
+        if (section.letter.isNotEmpty() && (grid || state.listShowsLetters)) {
             targets[section.letter] = index
             index++
         }

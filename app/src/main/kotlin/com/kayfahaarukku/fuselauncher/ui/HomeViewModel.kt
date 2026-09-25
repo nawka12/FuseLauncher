@@ -53,12 +53,19 @@ data class HomeState(
     fun notificationsFor(app: LauncherApp): List<AppNotification> =
         notifications[app.packageName to app.userOrCurrent()].orEmpty()
 
-    /** Letters the index strip may show; a leading star covers pinned and folders. */
+    /**
+     * Letters the index strip may show; a leading star covers pinned and
+     * folders. A lone section adds no letter, as on Flutter: there is nowhere
+     * to jump to.
+     */
     val indexLetters: List<String>
         get() = buildList {
             if (pinned.isNotEmpty() || folders.isNotEmpty()) add(TOP_INDEX_LETTER)
-            addAll(sections.map { it.letter }.filter { it.isNotEmpty() })
+            if (sections.size > 1) addAll(sections.map { it.letter }.filter { it.isNotEmpty() })
         }
+
+    /** The list heads each section with its letter only when there is more than one. */
+    val listShowsLetters: Boolean get() = sections.size > 1
 }
 
 data class Prefs(
