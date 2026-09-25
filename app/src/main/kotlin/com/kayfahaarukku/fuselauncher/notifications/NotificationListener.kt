@@ -29,11 +29,21 @@ typealias AppKey = Pair<String, UserHandle>
 private fun StatusBarNotification.isPreviewable(): Boolean =
     !isOngoing && (notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0
 
+/**
+ * The user whose copy of the app this notification belongs to. One posted to
+ * every user at once (USER_ALL, a negative id, which some system apps use)
+ * would match no tile, so it goes to the user of the app that posted it, as
+ * its uid says - the tile it sat on before notifications were keyed by user.
+ */
+@Suppress("DEPRECATION") // getUser() hides USER_ALL behind a UserHandle; the id shows it
+private val StatusBarNotification.owner: UserHandle
+    get() = if (userId >= 0) user else UserHandle.getUserHandleForUid(uid)
+
 private fun StatusBarNotification.toAppNotification(): AppNotification {
     val extras = notification.extras
     return AppNotification(
         packageName = packageName,
-        user = user,
+        user = owner,
         key = key,
         title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
         text = (extras.getCharSequence(Notification.EXTRA_TEXT)
