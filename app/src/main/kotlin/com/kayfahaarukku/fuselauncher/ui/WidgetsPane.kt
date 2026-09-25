@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.kayfahaarukku.fuselauncher.widgets.HostedWidget
 import com.kayfahaarukku.fuselauncher.widgets.WidgetProvider
+import kotlin.math.roundToInt
 
 private val Purple = Color(0xFF6750A4)
 
@@ -305,6 +306,7 @@ fun AddWidgetSheet(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
+    val density = LocalDensity.current.density
     val matches = remember(providers, query) {
         if (query.isBlank()) providers
         else providers.filter {
@@ -327,7 +329,10 @@ fun AddWidgetSheet(
                     ListItem(
                         headlineContent = { Text(provider.label.ifBlank { provider.appName }) },
                         supportingContent = {
-                            Text("${provider.appName} · ${provider.minWidth}×${provider.minHeight}")
+                            // The provider's sizes are pixels; Flutter showed dp.
+                            val width = (provider.minWidth / density).roundToInt()
+                            val height = (provider.minHeight / density).roundToInt()
+                            Text("${provider.appName} · $width×$height dp")
                         },
                         leadingContent = { Icon(Icons.Filled.Widgets, null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

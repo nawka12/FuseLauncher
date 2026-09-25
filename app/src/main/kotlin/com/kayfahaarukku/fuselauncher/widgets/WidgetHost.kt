@@ -58,19 +58,22 @@ class WidgetHost(private val context: Context) {
         }
     }
 
-    fun availableProviders(): List<WidgetProvider> = manager.installedProviders.map { info ->
-        WidgetProvider(
-            label = info.loadLabel(context.packageManager).orEmpty(),
-            appName = runCatching {
-                context.packageManager.getApplicationLabel(
-                    context.packageManager.getApplicationInfo(info.provider.packageName, 0)
-                ).toString()
-            }.getOrDefault(info.provider.packageName),
-            provider = info.provider.flattenToString(),
-            minWidth = info.minWidth,
-            minHeight = info.minHeight,
-        )
-    }.sortedBy { it.appName.lowercase() }
+    /** Providers declaring a zero size are left out, as Flutter's picker did. */
+    fun availableProviders(): List<WidgetProvider> = manager.installedProviders
+        .filter { it.minWidth > 0 && it.minHeight > 0 }
+        .map { info ->
+            WidgetProvider(
+                label = info.loadLabel(context.packageManager).orEmpty(),
+                appName = runCatching {
+                    context.packageManager.getApplicationLabel(
+                        context.packageManager.getApplicationInfo(info.provider.packageName, 0)
+                    ).toString()
+                }.getOrDefault(info.provider.packageName),
+                provider = info.provider.flattenToString(),
+                minWidth = info.minWidth,
+                minHeight = info.minHeight,
+            )
+        }.sortedBy { it.appName.lowercase() }
 
     fun previewImage(provider: WidgetProvider): Drawable? {
         val info = manager.installedProviders
