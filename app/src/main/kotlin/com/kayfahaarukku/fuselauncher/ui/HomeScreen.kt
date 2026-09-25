@@ -402,7 +402,9 @@ private fun SearchBar(
                     )
                 }
 
-                hiddenMode == HiddenMode.OFF -> Row {
+                // Only choosing what to hide drops them; the hidden list
+                // keeps both, as on Flutter.
+                hiddenMode != HiddenMode.SELECTING -> Row {
                     IconButton(onClick = onSort) {
                         Icon(
                             Icons.Filled.Sort,
