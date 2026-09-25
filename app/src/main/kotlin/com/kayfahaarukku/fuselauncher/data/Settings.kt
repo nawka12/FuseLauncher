@@ -153,7 +153,8 @@ class Settings(context: Context) {
             old.getString("app_usage_counts")?.let { putString(KEY_USAGE, it) }
             old.getString("tie_order")?.let { putString(KEY_TIE_ORDER, it) }
             putInt(KEY_TIE_COUNTER, old.getInt("tie_order_counter", 0))
-            putBoolean(KEY_SEARCH_TOP, old.getBoolean("isSearchBarAtTop", false))
+            // Flutter read a missing key as top, so a user who never moved it had it there.
+            putBoolean(KEY_SEARCH_TOP, old.getBoolean("isSearchBarAtTop", true))
             putBoolean(KEY_BADGES, old.getBoolean("show_notification_badges", true))
             putBoolean(KEY_PREVIEWS, old.getBoolean("show_notification_previews", true))
             putInt(KEY_GRID_COLUMNS, old.getInt("app_grid_columns", 4))
