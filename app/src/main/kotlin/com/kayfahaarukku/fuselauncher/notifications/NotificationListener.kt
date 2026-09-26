@@ -2,6 +2,8 @@ package com.kayfahaarukku.fuselauncher.notifications
 
 import android.app.Notification
 import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.UserHandle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -62,13 +64,19 @@ class NotificationListener : NotificationListenerService() {
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        connected = false
         publish()
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        requestRebind(ComponentName(this, NotificationListener::class.java))
+        connected = true
         publish()
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        connected = false
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) = publish()
@@ -89,6 +97,39 @@ class NotificationListener : NotificationListenerService() {
 
         var instance: NotificationListener? = null
             private set
+
+        /** Whether the system has the listener bound and delivering right now. */
+        @Volatile
+        var connected = false
+            private set
+
+        /**
+         * Makes the system bind the listener again after it was dropped. MIUI
+         * drops it when it kills or freezes the launcher, and Android never
+         * binds it back by itself, so badges went blank until something did.
+         *
+         * requestRebind() cannot do this: it only undoes requestUnbind(), and
+         * the system ignores it for a listener dropped any other way. Turning
+         * the component off and on is a package change, which makes the system
+         * rebind the package's enabled listeners. The Flutter build did this on
+         * every start; this does it only when the listener is actually gone.
+         */
+        fun rebind(context: Context) {
+            val component = ComponentName(context, NotificationListener::class.java)
+            val packageManager = context.packageManager
+            runCatching {
+                packageManager.setComponentEnabledSetting(
+                    component,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+                packageManager.setComponentEnabledSetting(
+                    component,
+                    PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }.onFailure { Log.e(TAG, "Error rebinding listener: ${it.message}") }
+        }
 
         private val _byApp = MutableStateFlow<Map<AppKey, List<AppNotification>>>(emptyMap())
 

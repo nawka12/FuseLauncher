@@ -129,6 +129,11 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         // An app may have been installed or removed while we were away.
         viewModel.refresh()
+        // Badges only matter while the drawer is showing, so this is where a
+        // listener the system dropped gets bound again.
+        if (!NotificationListener.connected && hasNotificationAccess()) {
+            NotificationListener.rebind(this)
+        }
         // Coming back from another app is a fresh start, so the drawer opens on
         // an empty search box, as on Flutter. The list scrolls itself to the top.
         viewModel.search("")
