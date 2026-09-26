@@ -145,11 +145,16 @@ fun AppsPane(
     // for "Termux" and the drawer comes back scrolled to T.
     LaunchedEffect(state.query) { scrollToTop() }
 
+    val focusManager = LocalFocusManager.current
+
     // Home, or a return from another app, is a fresh start: back to the top.
     // A tab switch is not - the pager keeps this pane composed through it.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { scrollToTop() } }
-
-    val focusManager = LocalFocusManager.current
+    // The search lets go of focus too, or Android brings the keyboard back up
+    // over the drawer; Flutter's came back with it down.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        focusManager.clearFocus()
+        scope.launch { scrollToTop() }
+    }
 
     fun jumpTo(letter: String) {
         hintLetter = letter
